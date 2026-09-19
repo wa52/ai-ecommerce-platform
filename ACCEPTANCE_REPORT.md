@@ -12,7 +12,7 @@
 | Phase 4 | 平台接入（Connector） | PASS（REAL_INTEGRATION: NOT_VERIFIED） | 见下方《Phase 4》 |
 | Phase 5 | Finance | PASS | 见下方《Phase 5》 |
 | Phase 6 | 基础 AI（LLM Gateway / 文案 / 翻译） | PASS（REAL_MODEL_INTEGRATION: NOT_VERIFIED） | 见下方《Phase 6》 |
-| Phase 7 | Agent | NOT_IMPLEMENTED | — |
+| Phase 7 | Agent | PASS（REAL_MODEL_INTEGRATION: NOT_VERIFIED） | 见下方《Phase 7》 |
 | Phase 8 | RAG | NOT_IMPLEMENTED | — |
 | Phase 9 | Analytics | NOT_IMPLEMENTED | — |
 | Phase 10 | 工程化与最终验收 | NOT_IMPLEMENTED | — |
@@ -1046,6 +1046,163 @@ Already Verified Parts: Gateway 切换、超时、重试、错误映射、Usage�
 Unverified Parts: 与真实厂商的调用与计费
 How To Continue Verification: 配置 LLM_* 后重跑 backend/scripts/ai_acceptance.py（去掉 Sandbox 依赖）
 ```
+
+## 20. 最终状态
+
+```text
+PASS
+```
+
+（真实模型厂商项单独标注 BLOCKED，未计入 PASS。）
+
+---
+
+# Phase 7 — Agent（Agent Runtime / Tool Registry）
+
+> 状态：PASS（模型厂商为 Sandbox，`REAL_MODEL_INTEGRATION: NOT_VERIFIED`）。
+
+## 1. Build 信息
+
+| 项 | 值 |
+| --- | --- |
+| Phase | Phase 7 — Agent Runtime + Capability/Tool Registry |
+| 日期 | 2026-09-20 |
+| 方案 | Agent 角色不写死（`AgentRegistry`）；能力来自 `ToolRegistry`；工具调用受与普通 API 同等权限约束；工具失败显式回传，禁止编造业务数据 |
+| 新增代码 | `modules/ai/agent/{runtime,api}.py`、`modules/ai/tools/{base,builtin,registry}.py`；LLM Provider 增加 function calling |
+
+## 2. Git Commit SHA
+
+```text
+见提交：feat(agent): Agent Runtime + Tool Registry + 业务工具
+```
+
+## 3. 运行环境
+
+同 Phase 6。
+
+## 4. 功能验收（§44）
+
+```text
+REAL_MODEL_INTEGRATION: NOT_VERIFIED
+```
+
+沙箱 LLM 负责**选择工具**；工具执行**真实业务数据查询**（Saleor 订单 + PostgreSQL 财务表）。
+
+| 验收项 | 状态 | 证据 |
+| --- | --- | --- |
+| Tool Selection | PASS | "查询最近 30 天销售情况" → `analytics.sales_summary`；"查最近订单" → `commerce.recent_orders` |
+| Tool Arguments | PASS | 参数 `{"limit": 20}` / `{"limit": 5}` 正确透传 |
+| Tool Result | PASS | 工具返回真实聚合（sampled_orders=3，USD） |
+| Agent Final Answer | PASS | 回答中的数字与工具结果一致（USD 3 笔 / 119.94） |
+| Tool Failure | PASS | `debug.always_fails` → ok=False，错误回传模型 |
+| Permission | PASS | 普通用户调用管理员工具 → "需要管理员权限"，且工具未执行 |
+| Timeout | PASS | 上游超时/错误经 Gateway 映射（Phase 6 覆盖），Agent 不崩溃 |
+| 无数据场景 | PASS | 不存在 slug → total_count=0，返回空结果而非编造 |
+| 禁止编造业务数据 | PASS | 失败时回答为"无法给出业务数据"；回答数字与工具结果逐项比对一致 |
+
+验收流程（spec §44）：
+
+```text
+用户：“查询最近 30 天销售情况”
+  ↓
+Agent 正确选择 Analytics Tool        ✅
+  ↓
+Tool 查询真实业务数据                 ✅（Saleor 真实订单）
+  ↓
+返回 Tool Result                      ✅
+  ↓
+LLM 基于 Tool Result 回答             ✅（数字一致）
+```
+
+## 5. 前端验收（§47）
+
+`NOT_IMPLEMENTED` — Agent UI 属 Phase 9/10。
+
+## 6. API 验收（§48）
+
+| 接口 | 状态 | 说明 |
+| --- | --- | --- |
+| `GET /agent/agents` | PASS | 200（operations / probe） |
+| `GET /agent/tools` | PASS | 200（6 个工具，含 requires_admin 标记） |
+| `POST /agent/run` | PASS | 200（answer + tool_invocations + iterations + usage） |
+| `POST /agent/run/admin` | PASS | 管理员 200；普通用户 403 |
+| 未知 Agent | PASS | 404 |
+
+## 7. 数据库验收（§49）
+
+无新增表；`ai_llm_usage` 记录 Agent 调用 token（复用 Phase 6）。
+
+## 8. Connector 验收（§40）
+
+`REAL_INTEGRATION: NOT_VERIFIED`（见 Phase 4）。
+
+## 9. Finance 验收（§41）
+
+`finance.summary` 工具读取真实财务表；Phase 5 回归通过。
+
+## 10. AI / Agent 验收（§43、§44）
+
+§43 见 Phase 6；§44 见第 4 节。
+
+## 11. RAG 验收（§45）
+
+`NOT_IMPLEMENTED` — Phase 8。
+
+## 12. Worker 验收（§46）
+
+本 Phase 未新增 Worker 任务；回归通过。
+
+## 13. Security 检查（§50）
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| Agent 工具受同等权限约束 | PASS | `Tool.check_permission` + 单测 + 实测（普通用户被拒且工具未执行） |
+| 越权工具不可静默通过 | PASS | 拒绝原因回传模型与前端 |
+| 令牌透传最小权限 | PASS | 工具复用调用者令牌访问 Commerce Core |
+
+## 14. Regression Test（§51）
+
+```text
+docs/evidence/phase7/02_pytest.txt: 90 passed
+```
+
+Phase 1–7 全部通过，无回归。
+
+## 15. E2E 验收（§52）
+
+```text
+登录 → Agent/Tool 列表 → 提问"最近 30 天销售情况"
+  → 选择 analytics.sales_summary → 查询真实订单 → 返回聚合
+  → 最终回答数字与工具结果一致
+  → 工具失败场景：显式失败、不编造
+  → 无数据场景：total_count=0
+  → 普通用户：工具被拒 + admin 端点 403
+```
+
+## 16. 测试数量与结果
+
+| 类型 | 数量 | 结果 |
+| --- | --- | --- |
+| Unit / API Test（pytest） | 90 | PASS |
+| Acceptance（Sandbox LLM + 真实业务数据，脚本） | 15 项 | PASS |
+
+## 17. 已知问题
+
+22. **Agent 轮次上限 4** — 超出后返回"已达到最大工具调用轮次"，未做规划式多步编排。
+23. **工具集较小** — 当前 4 个业务工具 + 2 个探针工具；新增能力只需注册 Tool（无需改 Runtime）。
+24. **无流式 Agent 输出** — `/agent/run` 为一次性返回；流式 Agent 待后续。
+
+## 18. 未完成功能
+
+- Agent UI（对话式界面）
+- 多 Agent 协作 / 规划
+- 工具级限流与审计明细
+
+## 19. Blocked 项
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| 真实模型厂商验证 | BLOCKED | 需要真实 LLM API Key（同 Phase 6） |
 
 ## 20. 最终状态
 

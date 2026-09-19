@@ -51,21 +51,27 @@ class LLMGateway:
         model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 1024,
+        tools: list[dict] | None = None,
     ) -> LLMResponse:
         target = self.provider(provider)
         secret = getattr(target, "api_key", "")
         try:
             response = await target.complete(
-                messages, model=model or self._model, temperature=temperature, max_tokens=max_tokens
+                messages,
+                model=model or self._model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                tools=tools,
             )
         except LLMError as exc:
             logger.warning("LLM call failed via %s: %s", target.name, redact(str(exc), secret))
             raise
         logger.info(
-            "LLM call ok provider=%s model=%s tokens=%s",
+            "LLM call ok provider=%s model=%s tokens=%s tool_calls=%s",
             response.provider,
             response.model,
             response.usage.total_tokens,
+            len(response.tool_calls),
         )
         return response
 

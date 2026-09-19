@@ -3,12 +3,23 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class ToolCall:
+    id: str
+    name: str
+    arguments: str = "{}"
 
 
 @dataclass
 class LLMMessage:
     role: str
-    content: str
+    content: str = ""
+    tool_calls: list[ToolCall] = field(default_factory=list)
+    tool_call_id: str | None = None
+    name: str | None = None
 
 
 @dataclass
@@ -25,6 +36,7 @@ class LLMResponse:
     provider: str
     usage: LLMUsage = field(default_factory=LLMUsage)
     finish_reason: str | None = None
+    tool_calls: list[ToolCall] = field(default_factory=list)
 
 
 class LLMError(Exception):
@@ -45,6 +57,7 @@ class LLMProvider(ABC):
         model: str,
         temperature: float = 0.7,
         max_tokens: int = 1024,
+        tools: list[dict[str, Any]] | None = None,
     ) -> LLMResponse: ...
 
     @abstractmethod

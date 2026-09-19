@@ -5,7 +5,7 @@ from collections.abc import AsyncIterator
 
 import httpx
 
-from app.modules.ai.llm.base import LLMError, LLMMessage, LLMProvider, LLMResponse, LLMUsage
+from app.modules.ai.llm.base import LLMError, LLMMessage, LLMProvider, LLMResponse, LLMUsage, ToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -42,14 +42,39 @@ class OpenAICompatibleProvider(LLMProvider):
             "Content-Type": "application/json",
         }
 
-    def _payload(self, messages: list[LLMMessage], model: str, temperature: float, max_tokens: int, stream: bool) -> dict:
-        return {
+    def _payload(
+        self,
+        messages: list[LLMMessage],
+        model: str,
+        temperature: float,
+        max_tokens: int,
+        stream: bool,
+        tools: list[dict] | None = None,
+    ) -> dict:
+        serialized = []
+        for m in messages:
+            item: dict = {"role": m.role, "content": m.content}
+            if m.tool_calls:
+                item["tool_calls"] = [
+                    {"id": tc.id, "type": "function", "function": {"name": tc.name, "arguments": tc.arguments}}
+                    for tc in m.tool_calls
+                ]
+            if m.tool_call_id:
+                item["tool_call_id"] = m.tool_call_id
+            if m.name:
+                item["name"] = m.name
+            serialized.append(item)
+
+        payload: dict = {
             "model": model,
-            "messages": [{"role": m.role, "content": m.content} for m in messages],
+            "messages": serialized,
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": stream,
         }
+        if tools:
+            payload["tools"] = tools
+        return payload
 
     async def _post(self, payload: dict, *, stream: bool) -> httpx.Response:
         if not self.configured:
@@ -99,10 +124,16 @@ class OpenAICompatibleProvider(LLMProvider):
         raise LLMError(f"LLM 调用失败：{last_error}", status_code=502)
 
     async def complete(
-        self, messages: list[LLMMessage], *, model: str, temperature: float = 0.7, max_tokens: int = 1024
+        self,
+        messages: list[LLMMessage],
+        *,
+        model: str,
+        temperature: float = 0.7,
+        max_tokens: int = 1024,
+        tools: list[dict] | None = None,
     ) -> LLMResponse:
         response = await self._post(
-            self._payload(messages, model, temperature, max_tokens, stream=False), stream=False
+            self._payload(messages, model, temperature, max_tokens, stream=False, tools=tools), stream=False
         )
         try:
             body = response.json()
@@ -116,8 +147,19 @@ class OpenAICompatibleProvider(LLMProvider):
             raise LLMError("LLM 返回格式异常：缺少 choices", status_code=502)
         message = choices[0].get("message") or {}
         content = message.get("content")
+        tool_calls = [
+            ToolCall(
+                id=tc.get("id") or f"call_{idx}",
+                name=(tc.get("function") or {}).get("name") or "",
+                arguments=(tc.get("function") or {}).get("arguments") or "{}",
+            )
+            for idx, tc in enumerate(message.get("tool_calls") or [])
+        ]
         if not isinstance(content, str):
-            raise LLMError("LLM 返回格式异常：缺少 message.content", status_code=502)
+            if tool_calls:
+                content = ""
+            else:
+                raise LLMError("LLM 返回格式异常：缺少 message.content", status_code=502)
 
         raw_usage = body.get("usage") or {}
         return LLMResponse(
@@ -125,6 +167,7 @@ class OpenAICompatibleProvider(LLMProvider):
             model=body.get("model") or model,
             provider=self.name,
             finish_reason=choices[0].get("finish_reason"),
+            tool_calls=tool_calls,
             usage=LLMUsage(
                 prompt_tokens=int(raw_usage.get("prompt_tokens") or 0),
                 completion_tokens=int(raw_usage.get("completion_tokens") or 0),

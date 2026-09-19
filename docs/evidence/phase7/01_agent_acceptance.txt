@@ -1,0 +1,20 @@
+﻿fake LLM listening on 0.0.0.0:9098
+login: OK
+PASS agents listed (not hardcoded roles) | ['operations', 'probe']
+PASS tools registered via registry | count=6
+PASS agent run ok | status=200
+PASS correct tool selected (analytics.sales_summary) | ['analytics.sales_summary']
+PASS tool arguments passed | {'limit': 20}
+PASS tool executed against real data | ok=True
+PASS tool result contains real order aggregates | sampled=3 by_currency=['USD']
+PASS final answer grounded in tool result (numbers match) | answer=依据工具返回的真实订单数据：USD 订单 3 笔，销售额 119.94
+PASS tool selection varies by intent | ['commerce.recent_orders']
+PASS tool failure surfaced | error=模拟工具失败
+PASS failure not papered over with fabricated data | answer=工具执行失败：模拟工具失败。无法给出业务数据。
+PASS no-data path returns explicit empty result | total_count=0 answer=工具返回数据：{"total_count": 0, "items": []}
+PASS tool permission enforced for non-admin | error=工具 analytics.sales_summary 需要管理员权限
+PASS admin-only agent endpoint -> 403 | status=403
+PASS unknown agent handled | status=404
+
+REAL_MODEL_INTEGRATION: NOT_VERIFIED (sandbox LLM chooses tools; tools query real business data)
+RESULT: PASS
