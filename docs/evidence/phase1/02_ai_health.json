@@ -1,0 +1,1 @@
+﻿{"status":"ok","postgres":{"name":"PostgreSQL","ok":true,"detail":"16.15"},"redis":{"name":"Redis","ok":true,"detail":"7.4.11"},"saleor":{"name":"Saleor","ok":true,"detail":"shop id=U2hvcDox"}}

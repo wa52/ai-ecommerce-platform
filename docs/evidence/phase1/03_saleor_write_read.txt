@@ -1,0 +1,4 @@
+﻿login: OK
+productCreate: 200 already exists -> idempotent re-run
+read-back: {"id": "UHJvZHVjdDox", "name": "Phase 1 Acceptance Product", "slug": "phase1-acceptance-product"}
+SALEOR WRITE+READ: PASS

@@ -1,0 +1,207 @@
+name: ai-ecommerce
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ecommerce}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-ecommerce}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ecommerce}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - platform
+
+  cache:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - platform
+
+  storage:
+    image: quay.io/minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9002:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - platform
+
+  # ---------- Commerce Core (Saleor) ----------
+  saleor-api:
+    image: ghcr.io/saleor/saleor:3.23
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-ecommerce}:${POSTGRES_PASSWORD}@db:5432/${SALEOR_DB:-saleor}
+      CACHE_URL: redis://cache:6379/1
+      CELERY_BROKER_URL: redis://cache:6379/2
+      SECRET_KEY: ${SALEOR_SECRET_KEY:?SALEOR_SECRET_KEY is required}
+      DEFAULT_CHANNEL_SLUG: default-channel
+      DASHBOARD_URL: http://localhost:9000/
+      ALLOWED_HOSTS: localhost,127.0.0.1,saleor-api
+      DEFAULT_FROM_EMAIL: noreply@example.com
+      EMAIL_URL: smtp://mailpit:1025
+      OTEL_SERVICE_NAME: saleor
+      JAEGER_AGENT_HOST: jaeger
+      JAEGER_AGENT_PORT: 6831
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    volumes:
+      - saleor_media:/app/media
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import urllib.request, json; req = urllib.request.Request('http://localhost:8000/graphql/', data=json.dumps({'query': '{shop{id}}'}).encode(), headers={'Content-Type': 'application/json'}); urllib.request.urlopen(req, timeout=8)"
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+    networks:
+      - platform
+
+  saleor-worker:
+    image: ghcr.io/saleor/saleor:3.23
+    restart: unless-stopped
+    command: celery -A saleor --app=saleor.celeryconf:app worker --loglevel=info -B
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-ecommerce}:${POSTGRES_PASSWORD}@db:5432/${SALEOR_DB:-saleor}
+      CACHE_URL: redis://cache:6379/1
+      CELERY_BROKER_URL: redis://cache:6379/2
+      SECRET_KEY: ${SALEOR_SECRET_KEY:?SALEOR_SECRET_KEY is required}
+      DEFAULT_CHANNEL_SLUG: default-channel
+      DEFAULT_FROM_EMAIL: noreply@example.com
+      EMAIL_URL: smtp://mailpit:1025
+    depends_on:
+      - saleor-api
+      - cache
+    volumes:
+      - saleor_media:/app/media
+    networks:
+      - platform
+
+  saleor-dashboard:
+    image: ghcr.io/saleor/saleor-dashboard:3.23
+    restart: unless-stopped
+    ports:
+      - "9000:80"
+    environment:
+      - API_URL=http://localhost:8000/graphql/
+    depends_on:
+      - saleor-api
+    networks:
+      - platform
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+    networks:
+      - platform
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    restart: unless-stopped
+    ports:
+      - "16686:16686"
+    networks:
+      - platform
+
+  # ---------- AI Extension Layer (FastAPI) ----------
+  ai-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ecommerce}:${POSTGRES_PASSWORD}@db:5432/${AI_DB:-ai_platform}
+      REDIS_URL: redis://cache:6379/0
+      SALEOR_API_URL: http://saleor-api:8000/graphql/
+      CORS_ORIGINS: '["http://localhost:3000"]'
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+      saleor-api:
+        condition: service_started
+    networks:
+      - platform
+
+  ai-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ecommerce}:${POSTGRES_PASSWORD}@db:5432/${AI_DB:-ai_platform}
+      REDIS_URL: redis://cache:6379/0
+    depends_on:
+      - ai-backend
+      - cache
+    networks:
+      - platform
+
+  # ---------- Storefront / Platform Frontend ----------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_AI_API_URL=http://localhost:8001/api/v1
+      - NODE_ENV=production
+    depends_on:
+      - ai-backend
+    networks:
+      - platform
+
+volumes:
+  db_data:
+  redis_data:
+  minio_data:
+  saleor_media:
+
+networks:
+  platform:

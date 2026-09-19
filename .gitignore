@@ -1,0 +1,19 @@
+# 依赖与产物
+node_modules/
+.next/
+out/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 环境与密钥
+.env
+*.local
+
+# 日志与临时文件
+*.log
+backend/logs/
+
+# 测试工具产物
+.playwright-mcp/

@@ -1,0 +1,12 @@
+﻿SERVICE            STATUS
+ai-backend         Up 3 minutes
+ai-worker          Up 3 minutes
+cache              Up 3 minutes (healthy)
+db                 Up 3 minutes (healthy)
+frontend           Up 3 minutes
+jaeger             Up 3 minutes
+mailpit            Up 3 minutes (healthy)
+saleor-api         Up 3 minutes (healthy)
+saleor-dashboard   Up 3 minutes
+saleor-worker      Up 3 minutes
+storage            Up 3 minutes (healthy)

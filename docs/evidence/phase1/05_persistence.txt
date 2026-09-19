@@ -1,0 +1,4 @@
+﻿PERSISTENCE TEST (docker compose down -> up, volumes kept)
+BEFORE: superuser=1 alembic=0001_baseline redis=phase1-marker-2026
+AFTER:  superuser=1 alembic=0001_baseline redis=phase1-marker-2026
+RESULT: PASS (data survived full stack restart)
