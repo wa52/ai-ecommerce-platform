@@ -1,0 +1,26 @@
+﻿login: OK
+PASS formulas documented | missing=set()
+PASS seed payment | status=201
+PASS seed refund 100.00 | status=201
+PASS seed settlement | status=201
+PASS overview available | status=200
+  baseline: gmv=119.94 refund=600.00 platform_fee=350.00
+  system  : gmv=119.94 net_sales=-580.06 refund=700.00 platform_fee=400.00 payment_fee=160.00 profit=-1340.06
+PASS 螖refund_total = +100.00 | delta=100.0
+PASS 螖platform_fee = +50.00 (1000脳5%) | delta=50.0
+PASS 螖payment_fee = +20.00 (1000脳2%) | delta=20.0
+PASS 螖net_settled = +930.00 (1000-50-20) | delta=930.0
+PASS 螖net_sales = -100.00 | delta=-100.0
+PASS 螖profit = -170.00 | delta=-170.0
+PASS net_sales = gmv - refund | 119.94 - 700.00 != -580.06
+PASS refund_rate = refund/gmv | 583.63%
+PASS avg_order_value = gmv/order_count | 39.98
+PASS profit = net_sales - platform_fee - payment_fee - other_cost | profit=-1340.06
+PASS profit_margin = 0 when net_sales <= 0 (documented rule) | net_sales=-580.06 margin=0.00%
+PASS other_cost=200 reduces profit by 200.00 | diff=200.0
+PASS time window supported (today) | status=200
+PASS currency filter isolates currency | keys=['JPY']
+PASS analytics requires admin -> 403 | status=403
+
+NOTE: 鎸囨爣鍙ｅ緞瑙?/api/v1/analytics/formulas锛堜笌鍓嶇 Dashboard銆丄I 宸ュ叿鍏辩敤鍚屼竴瀹炵幇锛?
+RESULT: PASS

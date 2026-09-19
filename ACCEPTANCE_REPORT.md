@@ -14,7 +14,7 @@
 | Phase 6 | 基础 AI（LLM Gateway / 文案 / 翻译） | PASS（REAL_MODEL_INTEGRATION: NOT_VERIFIED） | 见下方《Phase 6》 |
 | Phase 7 | Agent | PASS（REAL_MODEL_INTEGRATION: NOT_VERIFIED） | 见下方《Phase 7》 |
 | Phase 8 | RAG | PASS（REAL_MODEL_INTEGRATION: NOT_VERIFIED） | 见下方《Phase 8》 |
-| Phase 9 | Analytics | NOT_IMPLEMENTED | — |
+| Phase 9 | Analytics | PASS | 见下方《Phase 9》 |
 | Phase 10 | 工程化与最终验收 | NOT_IMPLEMENTED | — |
 
 ---
@@ -1374,3 +1374,178 @@ PASS
 ```
 
 （真实 embedding / 模型厂商项单独标注 BLOCKED，未计入 PASS。）
+
+---
+
+# Phase 9 — Analytics（数据分析 / Dashboard）
+
+> 状态：PASS。
+
+## 1. Build 信息
+
+| 项 | 值 |
+| --- | --- |
+| Phase | Phase 9 — Analytics（spec §12、§42） |
+| 日期 | 2026-09-20 |
+| 方案 | 指标口径集中在 `analytics/domain/formulas.py`（唯一定义）；服务聚合 Saleor 订单 + Finance 表；前端 Dashboard 与 AI 工具共用同一实现 |
+| 新增代码 | `modules/analytics/{domain,application,api}`、前端 `features/analytics`、`features/finance`、`services/analytics.ts` |
+
+## 2. Git Commit SHA
+
+```text
+见提交：feat(analytics): Dashboard + 统一指标口径 + 财务页面
+```
+
+## 3. 运行环境
+
+同 Phase 1。
+
+## 4. 功能验收（§42）
+
+验收方式（spec §42 要求"必须使用已知输入数据人工计算期望结果，再与系统输出比较"）：
+
+1. 取基线指标 → 注入已知数据（支付 1000 / 退款 100 / 结算 gross 1000，平台费 5%、支付费 2%）→ 再次取指标
+2. 人工核算增量期望 → 与系统增量逐项比对
+3. 第二重核对：独立 SQL 直接聚合数据库，与系统输出比较
+
+| 指标 | 状态 | 证据（`docs/evidence/phase9/01_analytics_acceptance.txt`） |
+| --- | --- | --- |
+| GMV | PASS | 系统 119.94 USD（真实订单） |
+| 销售额 | PASS | Δnet_sales = −100.00（= Δgmv 0 − Δ退款 100） |
+| 订单量 | PASS | order_count 与 avg_order_value 恒等式成立 |
+| 客单价 | PASS | avg_order_value = gmv ÷ order_count |
+| 退款率 | PASS | refund_rate = refund ÷ gmv |
+| 实际到账 | PASS | Δnet_settled = +930.00（= 1000 − 50 − 20） |
+| 平台手续费 | PASS | Δplatform_fee = +50.00（1000 × 5%） |
+| 支付手续费 | PASS | Δpayment_fee = +20.00（1000 × 2%） |
+| 利润 | PASS | Δprofit = −170.00（= −100 − 50 − 20） |
+| 其他成本 | PASS | other_cost=200 使利润精确减少 200.00 |
+| 利润率 | PASS | 口径文档化：销售额 ≤ 0 时记 0（实测 margin=0.00%） |
+
+独立 SQL 交叉核对（`docs/evidence/phase9/02_sql_crosscheck.txt`）：
+
+```text
+SQL:    refunded=700.0000  platform_fee=400.0000  payment_fee=160.0000
+系统:   refund_total=700.00 platform_fee=400.00  payment_fee=160.00
+结论:   完全一致
+```
+
+指标口径（`GET /analytics/formulas`，前端 Dashboard 同步展示）：
+
+```text
+GMV            = Σ 区间内订单金额（gross）
+销售额          = GMV − 退款总额
+订单量          = 区间内订单数量
+客单价          = GMV ÷ 订单量（订单量为 0 时记 0）
+退款率          = 退款总额 ÷ GMV（GMV 为 0 时记 0）
+平台手续费      = Σ 结算单平台手续费
+支付手续费      = Σ 结算单支付手续费
+实际到账        = Σ 结算单净额（gross − 平台费 − 支付费）
+利润            = 销售额 − 平台手续费 − 支付手续费 − 其他成本
+利润率          = 利润 ÷ 销售额 × 100（销售额 ≤ 0 时记 0）
+```
+
+spec §42 示例核对：收入 1000 / 退款 100 / 平台费 50 / 支付费 20 / 其他成本 200
+→ 系统输出 **利润 630.00、利润率 70.00%**（单测 `test_metrics_match_spec_example`）。
+
+Dashboard 支持 Today / 7 Days / 30 Days（实测切换）。
+
+## 5. 前端验收（§47）
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| 真实数据（非 Mock） | PASS | Dashboard 展示 USD GMV 119.94、JPY 0（来自后端） |
+| Loading / Error / Empty | PASS | Card loading、Alert 错误、无数据提示 |
+| 指标口径可见 | PASS | 页面内表格展示全部公式 |
+| 时间范围切换 | PASS | 今日 / 7 天 / 30 天 |
+| 无明显 Console Error | PASS | 登录后 console 0 error（`docs/evidence/phase9/04_dashboard.png`） |
+| 财务页面 | PASS | Payment / Refund / Settlement 三个 Tab 展示真实数据 |
+
+## 6. API 验收（§48）
+
+| 接口 | 状态 | 说明 |
+| --- | --- | --- |
+| `GET /analytics/overview` | PASS | 200；支持 days / other_cost / currency / limit |
+| `GET /analytics/formulas` | PASS | 200（口径定义） |
+| 参数校验 | PASS | `other_cost=abc` → 422 |
+| 鉴权 | PASS | 普通用户 403 |
+
+## 7. 数据库验收（§49）
+
+无新增表；指标基于既有 `payments/refunds/settlements` 与 Saleor 订单。窗口过滤（`created_at >= since`）已实现。
+
+## 8. Connector 验收（§40）
+
+`REAL_INTEGRATION: NOT_VERIFIED`（见 Phase 4）。
+
+## 9. Finance 验收（§41）
+
+Phase 5 通过；本 Phase 回归通过。
+
+## 10. AI / Agent 验收（§43、§44）
+
+Agent 的 `analytics.sales_summary` 工具与 Dashboard 使用相同的订单数据源；Phase 7 验收通过。
+
+## 11. RAG 验收（§45）
+
+Phase 8 通过；本 Phase 回归通过。
+
+## 12. Worker 验收（§46）
+
+`NOT_IMPLEMENTED` — 指标预计算/定时统计任务尚未放入 Worker。
+
+## 13. Security 检查（§50）
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| 敏感 API 权限 | PASS | 分析接口需管理员（403 实测） |
+| 金额精度 | PASS | 全链路 Decimal + 币种精度 |
+
+## 14. Regression Test（§51）
+
+```text
+docs/evidence/phase9/03_pytest.txt: 112 passed
+```
+
+Phase 1–9 全部通过，无回归。
+
+## 15. E2E 验收（§52）
+
+```text
+登录 → 数据分析：USD/JPY 分币种指标 + 口径表
+  → 注入已知数据 → 增量与人工核算完全一致
+  → 独立 SQL 聚合结果与系统输出一致
+  → 财务页展示 Payment/Refund/Settlement 真实数据
+  → 普通用户 403
+```
+
+## 16. 测试数量与结果
+
+| 类型 | 数量 | 结果 |
+| --- | --- | --- |
+| Unit / API Test（pytest） | 112 | PASS |
+| Acceptance（真实数据 + 人工核算 + SQL 交叉核对） | 17 项 | PASS |
+| 前端（Playwright 实机） | 5 项 | PASS |
+
+## 17. 已知问题
+
+28. **Finance 记录未与订单关联** — 开发库中支付/退款为独立造数，导致退款率可能 > 100%；生产应将退款绑定到区间内订单。
+29. **指标实时计算** — 数据量大时需预聚合（Worker）与缓存。
+30. **利润未含商品成本与物流成本** — 目前仅支持 `other_cost` 传入。
+
+## 18. 未完成功能
+
+- 趋势分析（时间序列图表）
+- 商品/店铺/平台维度利润拆分
+- 指标预计算 Worker 任务
+- 自定义时间范围选择器
+
+## 19. Blocked 项
+
+无（本 Phase 无外部依赖）。
+
+## 20. 最终状态
+
+```text
+PASS
+```

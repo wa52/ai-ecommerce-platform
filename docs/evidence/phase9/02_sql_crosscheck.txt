@@ -1,0 +1,16 @@
+﻿INDEPENDENT SQL CROSS-CHECK (no system formulas involved)
+Window: created_at >= now() - interval '30 days', currency = USD
+   paid    | refunded 
+-----------+----------
+ 5239.6000 | 700.0000
+(1 row)
+
+ platform_fee | payment_fee | net_settled 
+--------------+-------------+-------------
+     400.0000 |    160.0000 |   7440.0000
+(1 row)
+
+
+SYSTEM OUTPUT (same window/currency):
+  refund_total=700.00  platform_fee=400.00  payment_fee=160.00  net_settled=7440.00
+COMPARISON: refunded SQL=700.0000 vs system=700.00; platform_fee SQL=400.0000 vs system=400.00; payment_fee SQL=160.0000 vs system=160.00
