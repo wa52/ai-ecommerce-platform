@@ -15,14 +15,18 @@ class SaleorAdapter(CommerceAdapter):
         self.timeout = timeout
         self._transport = transport
 
-    async def graphql(self, query: str, variables: dict | None = None) -> dict:
+    async def graphql(self, query: str, variables: dict | None = None, token: str | None = None) -> dict:
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
         async with httpx.AsyncClient(timeout=self.timeout, transport=self._transport) as client:
             resp = await client.post(
                 self.api_url,
                 json={"query": query, "variables": variables or {}},
-                headers={"Content-Type": "application/json"},
+                headers=headers,
             )
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                raise RuntimeError(f"Saleor HTTP {resp.status_code}: {resp.text[:500]}")
             data = resp.json()
         if data.get("errors"):
             raise RuntimeError(f"Saleor GraphQL errors: {data['errors']}")

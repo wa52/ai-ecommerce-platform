@@ -1,0 +1,11 @@
+﻿PASS no token -> 401 | status=401
+PASS invalid token -> 401 | status=401
+PASS invalid payload -> 422 | status=422
+PASS admin login -> 200 | status=200 {"token": "eyJhbGciOiJSUzI1NiIs...
+PASS admin /me -> 200 | status=200
+PASS admin overview -> 200 with real data | status=200 shop=Saleor e-commerce staff=1 customers=1
+PASS customer login -> 200 | status=200 {"token": "eyJhbGciOiJSUzI1NiIs...
+PASS customer admin overview -> 403 | status=403
+PASS customer /me -> 200 | status=200
+
+RESULT: PASS

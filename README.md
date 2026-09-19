@@ -91,3 +91,34 @@ PostgreSQL(pgvector) + Redis + MinIO         Celery Worker + Dashboard(9000)
 
 - Commerce 核心能力（商品/订单/库存/支付）由 Saleor 提供，AI 层禁止直接读写 Saleor 数据库。
 - AI 层通过 `app/connectors/`（Commerce Adapter）访问 Saleor GraphQL API。
+
+## API（AI 扩展层）
+
+| 接口 | 方法 | 说明 |
+| --- | --- | --- |
+| `/api/v1/health` | GET | PostgreSQL / Redis / Saleor 连通检查 |
+| `/api/v1/tasks` | POST | 提交 Worker 任务（202） |
+| `/api/v1/tasks/{id}` | GET | 查询任务状态与结果 |
+| `/api/v1/iam/login` | POST | 登录（代理 Saleor `tokenCreate`），返回 token |
+| `/api/v1/iam/me` | GET | 当前用户（需 `Authorization: Bearer <token>`） |
+| `/api/v1/iam/admin/overview` | GET | 管理员概览（需 staff，否则 403） |
+
+身份来源为 Saleor：AI 层不保存密码、不复制用户表，只做令牌校验与授权（RBAC）。
+
+## 验收
+
+- 验收报告：`ACCEPTANCE_REPORT.md`
+- 可复查证据：`docs/evidence/phase1/`、`docs/evidence/phase2/`
+- 后端测试：`cd backend; .venv\Scripts\python -m pytest`
+- 验收脚本（需环境变量提供凭据）：
+  - `backend/scripts/iam_acceptance.py`（`IAM_ADMIN_EMAIL` / `IAM_ADMIN_PASSWORD` / `IAM_CUSTOMER_EMAIL` / `IAM_CUSTOMER_PASSWORD`）
+  - `backend/scripts/saleor_acceptance.py`（`SALEOR_ADMIN_EMAIL` / `SALEOR_ADMIN_PASSWORD`）
+  - `backend/scripts/acceptance_worker_check.py`
+
+## 发布到 GitHub
+
+项目位于 `D:\AiProjects` umbrella 仓库内。用脚本抽取本项目独立历史并推送（不影响其他项目）：
+
+```powershell
+powershell -File scripts\push_github.ps1 -Message "feat(xxx): ..."
+```

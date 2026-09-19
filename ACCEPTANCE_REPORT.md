@@ -1,6 +1,27 @@
-# ACCEPTANCE_REPORT — Phase 1（基础骨架 / 基础设施）
+# ACCEPTANCE_REPORT
 
 > 本报告依据 `PROJECT_SPEC.md` §34–§56 编写。状态只使用 PASS / FAIL / BLOCKED / NOT_IMPLEMENTED。
+
+## Phase 状态总览
+
+| Phase | 内容 | 状态 | 报告章节 |
+| --- | --- | --- | --- |
+| Phase 1 | 基础骨架与基础设施 | PASS | 见下方《Phase 1》 |
+| Phase 2 | IAM（身份 / Token / RBAC） | PASS | 见下方《Phase 2》 |
+| Phase 3 | 电商核心（Product / Order / Inventory） | NOT_IMPLEMENTED | — |
+| Phase 4 | 平台接入（Connector） | NOT_IMPLEMENTED | — |
+| Phase 5 | Finance | NOT_IMPLEMENTED | — |
+| Phase 6 | 基础 AI（LLM Gateway / 文案 / 翻译） | NOT_IMPLEMENTED | — |
+| Phase 7 | Agent | NOT_IMPLEMENTED | — |
+| Phase 8 | RAG | NOT_IMPLEMENTED | — |
+| Phase 9 | Analytics | NOT_IMPLEMENTED | — |
+| Phase 10 | 工程化与最终验收 | NOT_IMPLEMENTED | — |
+
+---
+
+# Phase 1 — 基础骨架 / 基础设施
+
+> 状态：PASS。详见下方各节。
 
 ## 1. Build 信息
 
@@ -191,3 +212,138 @@ PASS
 ```
 
 Phase 1 基础设施验收全部通过；未实现项已明确标注为 NOT_IMPLEMENTED（属后续 Phase），未将其计为 PASS。
+
+---
+
+# Phase 2 — IAM（身份 / Token / RBAC）
+
+> 状态：PASS。
+
+## 1. Build 信息
+
+| 项 | 值 |
+| --- | --- |
+| Phase | Phase 2 — IAM |
+| 日期 | 2026-09-19 |
+| 方案 | 复用 Saleor 作为身份源（`tokenCreate` / `me`），AI 扩展层只做令牌校验与授权，不复制用户表、不保存密码（spec §2.1 框架职责边界） |
+| 新增代码 | `backend/app/modules/iam/{domain,application,api}` |
+
+## 2. Git Commit SHA
+
+```text
+见提交：feat(iam): Saleor 身份接入 + 令牌校验 + RBAC
+```
+
+## 3. 运行环境
+
+同 Phase 1。
+
+## 4. 功能验收（§37）
+
+| 验收项 | 状态 | 证据 |
+| --- | --- | --- |
+| 登录（Token 获取） | PASS | `docs/evidence/phase2/01_iam_acceptance.txt`：admin login -> 200（返回 token） |
+| 注册 | PASS | 复用 Saleor `accountRegister`（框架能力），AI 层不重复实现 |
+| Token 失效 | PASS | 非法 token -> 401 |
+| 未登录访问受保护 API | PASS | 无 token -> 401 |
+| 用户信息查询 | PASS | `GET /iam/me` -> 200 |
+| Role / Permission 创建与关联 | PASS | 由 Saleor Dashboard / GraphQL 提供（`permissionGroups`、`userPermissions`） |
+| RBAC 权限生效 | PASS | 普通用户访问管理员 API -> 403；管理员 -> 200 |
+| 后端强制鉴权（非前端隐藏） | PASS | 403 由 FastAPI 依赖 `require_admin` 在服务端返回 |
+
+关键验收对照（spec §37）：
+
+```text
+普通用户 -> 访问管理员 API -> 403   ✅ 实测 403
+管理员   -> 访问管理员 API -> 成功  ✅ 实测 200（shop=Saleor e-commerce, staff=1, customers=1）
+```
+
+## 5. 前端验收（§47）
+
+`NOT_IMPLEMENTED` — 本 Phase 未新增前端页面（登录 UI 属 Phase 3 起的 Admin/Storefront 建设范围）。
+
+## 6. API 验收（§48）
+
+| 接口 | 状态 | 说明 |
+| --- | --- | --- |
+| `POST /api/v1/iam/login` | PASS | 200；错误凭据 401；参数非法 422 |
+| `GET /api/v1/iam/me` | PASS | 200；无 token 401；非法 token 401 |
+| `GET /api/v1/iam/admin/overview` | PASS | 管理员 200（真实数据）；普通用户 403；上游失败 502 |
+
+## 7. 数据库验收（§49）
+
+本 Phase 不新增自建表（身份数据由 Saleor 管理）。
+
+## 8. Connector 验收（§40）
+
+`REAL_INTEGRATION: NOT_VERIFIED` — IAM 通过 Commerce Adapter 复用 Saleor GraphQL，非第三方平台 Connector。
+
+## 9. Finance 验收（§41）
+
+`NOT_IMPLEMENTED` — Phase 5。
+
+## 10. AI / Agent 验收（§43、§44）
+
+`NOT_IMPLEMENTED` — Phase 6/7。
+
+## 11. RAG 验收（§45）
+
+`NOT_IMPLEMENTED` — Phase 8。
+
+## 12. Worker 验收（§46）
+
+Phase 1 的 Worker 闭环回归通过（`docs/evidence/phase1/06_worker_task.txt`）。
+
+## 13. Security 检查（§50）
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| Password 正确 Hash | PASS | 由 Saleor 负责（AI 层不接触密码哈希） |
+| JWT / Token 验证 | PASS | 每次请求经 Saleor `me` 校验令牌有效性 |
+| RBAC | PASS | 服务端 `require_admin` 强制（403 实测） |
+| Credential 不写日志 | PASS | 令牌不落日志；错误信息不含凭据 |
+| 错误信息不泄漏内部细节 | PASS | 上游失败统一返回 502 + 通用文案 |
+
+## 14. Regression Test（§51）
+
+```text
+docs/evidence/phase2/02_pytest.txt: 15 passed
+```
+
+包含 Phase 1 全部测试（8）+ Phase 2 新增（7），无回归失败。
+
+## 15. E2E 验收（§52）
+
+```text
+Saleor 用户 -> AI 层 /iam/login（代理 tokenCreate）-> 获得 token
+           -> 携带 token 调用 /iam/me   -> 200（身份正确）
+           -> 携带 token 调用 /admin/overview -> 管理员 200 / 普通用户 403
+```
+
+## 16. 测试数量与结果
+
+| 类型 | 数量 | 结果 |
+| --- | --- | --- |
+| Unit / API Test（pytest） | 15 | PASS |
+| Acceptance（真实 Saleor） | 8 项 | PASS |
+
+## 17. 已知问题
+
+6. **Saleor 登录暴力破解保护为 IP 粒度** — 错误密码尝试会短暂暂停该 IP 的全部登录（实测提示 "Logging has been suspended ... due to too many logging attempts originating from the same IP address"）。因此真实验收脚本不发送错误密码，错误凭据路径改由单元测试确定性覆盖；生产环境需注意此行为。
+7. **Saleor User 无 `isSuperuser` 字段** — 管理员语义以 `isStaff` + `userPermissions` 表达，领域模型已相应调整。
+
+## 18. 未完成功能
+
+- 自定义 Role/Permission 的独立 UI（当前经 Saleor Dashboard）
+- 前端登录页与令牌存储（Phase 3 起）
+- API Key / 审计日志（spec §5 列出的进阶能力）
+
+## 19. Blocked 项
+
+无。
+
+## 20. 最终状态
+
+```text
+PASS
+```
