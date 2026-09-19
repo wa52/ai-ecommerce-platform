@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     database_url: PostgresDsn
     redis_url: RedisDsn
     saleor_api_url: str = "http://localhost:8000/graphql/"
+    saleor_default_product_type_slug: str = "default-type"
+    saleor_default_category_slug: str = "default-category"
+    saleor_default_category_name: str = "Default Category"
 
     db_pool_size: int = 5
     db_max_overflow: int = 10

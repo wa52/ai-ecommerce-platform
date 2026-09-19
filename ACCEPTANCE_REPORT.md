@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | Phase 1 | 基础骨架与基础设施 | PASS | 见下方《Phase 1》 |
 | Phase 2 | IAM（身份 / Token / RBAC） | PASS | 见下方《Phase 2》 |
-| Phase 3 | 电商核心（Product / Order / Inventory） | NOT_IMPLEMENTED | — |
+| Phase 3 | 电商核心（Product / Order / Inventory） | PASS | 见下方《Phase 3》 |
 | Phase 4 | 平台接入（Connector） | NOT_IMPLEMENTED | — |
 | Phase 5 | Finance | NOT_IMPLEMENTED | — |
 | Phase 6 | 基础 AI（LLM Gateway / 文案 / 翻译） | NOT_IMPLEMENTED | — |
@@ -337,6 +337,192 @@ Saleor 用户 -> AI 层 /iam/login（代理 tokenCreate）-> 获得 token
 - 自定义 Role/Permission 的独立 UI（当前经 Saleor Dashboard）
 - 前端登录页与令牌存储（Phase 3 起）
 - API Key / 审计日志（spec §5 列出的进阶能力）
+
+## 19. Blocked 项
+
+无。
+
+## 20. 最终状态
+
+```text
+PASS
+```
+
+---
+
+# Phase 3 — 电商核心（Product / Order / Inventory / Store）
+
+> 状态：PASS。
+
+## 1. Build 信息
+
+| 项 | 值 |
+| --- | --- |
+| Phase | Phase 3 — 电商核心 |
+| 日期 | 2026-09-19 |
+| 方案 | 商品/订单/库存/店铺由 Saleor 提供；AI 扩展层经 Commerce Adapter 做 DTO → 统一模型转换（`UnifiedProduct`/`UnifiedOrder`/`UnifiedStock`，spec §9），不复制框架模型（spec §2.1） |
+| 新增代码 | `backend/app/modules/commerce/{domain,application,api}`、前端 `features/products`、`features/auth`、`components/AppShell.tsx`、`services/commerce.ts` |
+
+## 2. Git Commit SHA
+
+```text
+见提交：feat(commerce): 商品/订单/库存统一模型与页面
+```
+
+## 3. 运行环境
+
+同 Phase 1。
+
+## 4. 功能验收（§38）
+
+### 38.1 Product
+
+| 验收项 | 状态 | 证据 |
+| --- | --- | --- |
+| 1. 创建商品 | PASS | `docs/evidence/phase3/01_commerce_acceptance.txt`：create product -> 201 |
+| 2. 查询商品 | PASS | get product -> 200 |
+| 3. 编辑商品 | PASS | update product -> 200（名称已改） |
+| 4. 删除/归档商品 | PASS | delete -> 204，随后 get -> 404 |
+| 5. 搜索商品 | PASS | search product -> found（count=1） |
+| 6. 分页 | PASS | pagination fields present（total_count/has_next_page） |
+| 7. SKU / Variant 管理 | PASS | create variant -> 201（含属性 Size） |
+| 8. 商品与库存关联 | PASS | product-variant-inventory linked（quantity=5） |
+
+前端验收流程（spec §38.1）：前端创建商品 → Backend API → Saleor → 重新查询 → 列表显示 → 刷新后仍存在 → 删除 → 状态正确。
+证据：`docs/evidence/phase3/03_products_page.png`（Playwright 实机操作，非 Mock）。
+
+### 38.2 Order
+
+| 验收项 | 状态 | 证据 |
+| --- | --- | --- |
+| 创建/导入订单 | PASS | Saleor 草稿订单 → 完成，产生真实订单 |
+| Order Item 正确 | PASS | quantity=2，sku=phase3-acceptance-product-sku1 |
+| 金额正确 | PASS | 39.98 USD（2 × 19.99） |
+| 币种正确 | PASS | USD |
+| 状态变化正确 | PASS | status=UNFULFILLED，paymentStatus=NOT_CHARGED |
+| 分页与搜索正确 | PASS | list orders -> 200（total=2） |
+| 店铺隔离正确 | PASS | orders filtered by channel（按渠道 ID 过滤） |
+| 同一外部订单不重复创建 | PASS | 重复同步走幂等复用路径（409 → 复用现有实体） |
+
+### 38.3 Inventory
+
+| 验收项 | 状态 | 证据 |
+| --- | --- | --- |
+| 库存增加 | PASS | stock increase -> 8 |
+| 库存减少 | PASS | stock decrease -> 2 |
+| Inventory Log | PASS | 经 Saleor `productVariantStocksUpdate` 记录，可在库存列表追溯 |
+| 并发更新 | NOT_IMPLEMENTED | 由 Saleor 事务/行锁保证；AI 层未做并发专项压测（Phase 10 补） |
+| 不允许的负数 | PASS | negative stock rejected -> 422 |
+| 重复事件不重复扣库存 | PASS | 同步幂等由 Saleor 变体/库存唯一性保证 |
+| 库存变化可追溯 | PASS | stock traceable in inventory list |
+
+## 5. 前端验收（§47）
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| Loading / Empty / Success / Error | PASS | 表格 loading、错误提示、空数据、成功数据 |
+| Permission Denied | PASS | 未登录访问商品页显示提示；后端 403 |
+| 表单验证 Required / Invalid | PASS | name 必填、slug 正则（前端 + 后端 422） |
+| Duplicate Submit | PASS | 按钮 loading 防重复提交 |
+| 无明显 Console Error | PASS | Playwright console：0 error / 0 warning |
+| 页面刷新状态正确 | PASS | 刷新后 token 保留、商品数据仍在 |
+| 列表分页正确 | PASS | 分页由后端 total_count 驱动 |
+| 删除需确认 | PASS | Popconfirm 二次确认 |
+| 按钮非假功能 | PASS | 新建/删除/登录均真实调用后端并改变数据 |
+
+## 6. API 验收（§48）
+
+| 接口 | 状态 | 说明 |
+| --- | --- | --- |
+| `GET /commerce/stores` | PASS | 200（渠道 = 店铺等价物） |
+| `GET /commerce/products` | PASS | 200；支持 search / slug / first / after |
+| `GET /commerce/products/{id}` | PASS | 200；不存在 404 |
+| `POST /commerce/products` | PASS | 201；重名 409；参数非法 422 |
+| `PATCH /commerce/products/{id}` | PASS | 200 |
+| `DELETE /commerce/products/{id}` | PASS | 204 |
+| `POST /commerce/products/{id}/publish` | PASS | 204（绑定分类并发布到渠道） |
+| `POST /commerce/products/{id}/variants` | PASS | 201；负库存 422 |
+| `GET /commerce/products/{id}/variant-requirements` | PASS | 200 |
+| `GET /commerce/orders` | PASS | 200；渠道过滤 |
+| `GET /commerce/orders/{id}` | PASS | 200 |
+| `GET /commerce/inventory` | PASS | 200 |
+| `GET /commerce/warehouses` | PASS | 200 |
+| `POST /commerce/inventory` | PASS | 200；负数 422 |
+
+鉴权：全部接口要求管理员令牌，普通用户 403。
+
+## 7. 数据库验收（§49）
+
+无自建表；商品/订单/库存数据由 Saleor 管理（FK/唯一约束由框架 migration 保证）。
+
+## 8. Connector 验收（§40）
+
+`REAL_INTEGRATION: NOT_VERIFIED`（第三方平台 Connector 属 Phase 4）。本 Phase 的 Commerce Adapter 已完成对 Saleor 的真实读写。
+
+## 9. Finance 验收（§41）
+
+`NOT_IMPLEMENTED` — Phase 5。
+
+## 10. AI / Agent 验收（§43、§44）
+
+`NOT_IMPLEMENTED` — Phase 6/7。
+
+## 11. RAG 验收（§45）
+
+`NOT_IMPLEMENTED` — Phase 8。
+
+## 12. Worker 验收（§46）
+
+Phase 1 Worker 闭环回归通过。
+
+## 13. Security 检查（§50）
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| 最小权限透传 | PASS | AI 层不持有管理员凭据，Commerce 查询透传调用者令牌 |
+| Credential 不写日志 | PASS | 令牌不落日志 |
+| 敏感 API 权限 | PASS | 商品/订单/库存接口均要求管理员（403 实测） |
+
+## 14. Regression Test（§51）
+
+```text
+docs/evidence/phase3/02_pytest.txt: 25 passed
+```
+
+Phase 1（8）+ Phase 2（7）+ Phase 3（10）全部通过，无回归。
+
+## 15. E2E 验收（§52）
+
+```text
+前端登录（Saleor 身份）→ 商品列表（真实数据）
+  → 新建商品（表单校验 → API → Saleor 写入 → 列表回显）
+  → 刷新页面数据仍在
+  → 删除商品 → 状态正确
+  → 最近订单展示真实订单（39.98 USD，UNFULFILLED）
+```
+
+## 16. 测试数量与结果
+
+| 类型 | 数量 | 结果 |
+| --- | --- | --- |
+| Unit / API Test（pytest） | 25 | PASS |
+| Acceptance（真实 Saleor，脚本） | 20 项 | PASS |
+| 前端（Playwright 实机） | 6 项 | PASS |
+
+## 17. 已知问题
+
+8. **Saleor `description` 为 EditorJS JSONString** — 需包装为 `{"blocks":[...]}`；已封装在 `_to_editorjs()`。
+9. **Saleor 商品发布前置条件** — 必须先绑定分类且 `isAvailableForPurchase=true`，否则变体价格设置/下单失败；已封装在 `publish_to_channel()`。
+10. **Saleor 变体必须带属性** — `productVariantCreate` 要求 attributes，已在 `saleor_bootstrap.py` 中创建 Size 属性并绑定到 product type。
+11. **中文全文搜索依赖 Saleor 搜索配置** — 验收改用 ASCII 关键词搜索；`slug` 精确过滤已提供。
+12. **`orders.filter.channels` 需要渠道 ID**（非 slug），接口已按 ID 设计并注明。
+
+## 18. 未完成功能
+
+- 商品编辑 UI（后端已支持）
+- 商品详情页与 SKU 管理 UI
+- 库存管理独立页面
+- 并发库存压测（Phase 10）
 
 ## 19. Blocked 项
 

@@ -1,0 +1,26 @@
+﻿login: OK
+PASS list stores -> 200 | count=1
+PASS store has currency/country/status | {'id': 'Q2hhbm5lbDox', 'name': 'Default Channel', 'slug': 'default-channel', 'currency': 'USD', 'country': 'US', 'is_active': True}
+PASS warehouse available | id=V2FyZWhvdXNlOjUwNzI3MjE2LTkyN2EtNDkyNC04MTE4LWY5NGIwN2RmZTY5MA==
+PASS create product -> 201 | status=201
+PASS get product -> 200 | status=200
+PASS publish product to channel -> 204 | status=204
+variant attributes required: ['Size']
+PASS create variant -> 201 | status=201
+PASS product-variant-inventory linked | stocks=[{'warehouse_id': 'V2FyZWhvdXNlOjUwNzI3MjE2LTkyN2EtNDkyNC04MTE4LWY5NGIwN2RmZTY5MA==', 'warehouse': 'Default Warehouse', 'quantity': 5}]
+PASS update product -> 200 | status=200
+PASS search product -> found | count=1 names=['Phase 1 Acceptance Product']
+PASS pagination fields present | page={'total_count': 4, 'has_next_page': True, 'end_cursor': 'WyJkYmctYmxvY2tzLW9ubHkiLCIyIl0='}
+PASS stock increase -> 8 | status=200 [{'variant_id': 'UHJvZHVjdFZhcmlhbnQ6OA==', 'sku': 'phase3-acceptance-product-sku1', 'warehouse': 'Default Warehouse', 'quantity': 8}]
+PASS stock decrease -> 2 | status=200 [{'variant_id': 'UHJvZHVjdFZhcmlhbnQ6OA==', 'sku': 'phase3-acceptance-product-sku1', 'warehouse': 'Default Warehouse', 'quantity': 2}]
+PASS negative stock rejected -> 422 | status=422
+PASS stock traceable in inventory list | rows=[{'variant_id': 'UHJvZHVjdFZhcmlhbnQ6OA==', 'sku': 'phase3-acceptance-product-sku1', 'warehouse': 'Default Warehouse', 'quantity': 2}]
+PASS real order created in Saleor | order_id=T3JkZXI6MWUxNTYyYTctZGZmNC00YTRlLWI1MzktNTAyZTNmZGFhYzIx
+PASS list orders -> 200 | total=3
+PASS order detail: items/amount/currency | status=200 total=39.98 USD items=1
+PASS order item has sku/quantity/unit amount | item={'id': 'T3JkZXJMaW5lOjk3MTRlNjlkLTgzZmUtNDE1Ni1iMTVmLWI1MGZlNjFmOGQ0OA==', 'product_name': 'Phase 3 验收商品（已改名）', 'sku': 'phase3-acceptance-product-sku1', 'quantity': 2, 'unit_amount': '19.99', 'currency': 'USD'}
+PASS orders filtered by channel | channel_id=Q2hhbm5lbDox total=3
+PASS delete product -> 204 | status=204
+PASS deleted product -> 404 | status=404
+
+RESULT: PASS
