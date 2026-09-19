@@ -11,7 +11,7 @@
 | Phase 3 | 电商核心（Product / Order / Inventory） | PASS | 见下方《Phase 3》 |
 | Phase 4 | 平台接入（Connector） | PASS（REAL_INTEGRATION: NOT_VERIFIED） | 见下方《Phase 4》 |
 | Phase 5 | Finance | PASS | 见下方《Phase 5》 |
-| Phase 6 | 基础 AI（LLM Gateway / 文案 / 翻译） | NOT_IMPLEMENTED | — |
+| Phase 6 | 基础 AI（LLM Gateway / 文案 / 翻译） | PASS（REAL_MODEL_INTEGRATION: NOT_VERIFIED） | 见下方《Phase 6》 |
 | Phase 7 | Agent | NOT_IMPLEMENTED | — |
 | Phase 8 | RAG | NOT_IMPLEMENTED | — |
 | Phase 9 | Analytics | NOT_IMPLEMENTED | — |
@@ -896,3 +896,161 @@ PASS
 ```
 
 （真实支付网关项单独标注 BLOCKED，未计入 PASS。）
+
+---
+
+# Phase 6 — 基础 AI（LLM Gateway / 商品文案 / 翻译）
+
+> 状态：PASS（模型厂商为 Sandbox，`REAL_MODEL_INTEGRATION: NOT_VERIFIED`）。
+
+## 1. Build 信息
+
+| 项 | 值 |
+| --- | --- |
+| Phase | Phase 6 — LLM Gateway + 电商 AI 能力 |
+| 日期 | 2026-09-20 |
+| 方案 | 业务只依赖 `LLMGateway`；`OpenAICompatibleProvider` 通过配置切换厂商；统一超时/重试/错误映射；Token Usage 落库；日志脱敏 |
+| 新增代码 | `modules/ai/llm/{base,providers,gateway,usage}.py`、`modules/ai/application/content.py`、`modules/ai/api/routes.py`、Alembic `0004_ai_usage` |
+
+## 2. Git Commit SHA
+
+```text
+见提交：feat(ai): LLM Gateway + 商品文案/翻译 + Token Usage
+```
+
+## 3. 运行环境
+
+同 Phase 1；新增 `LLM_PROVIDER` / `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL`（留空则 Provider 未配置）。
+
+## 4. 功能验收（§43）
+
+```text
+REAL_MODEL_INTEGRATION: NOT_VERIFIED
+```
+
+未提供真实模型厂商 API Key。验收使用**本地 OpenAI 兼容 Sandbox 服务**驱动真实 `LLMGateway`/`OpenAICompatibleProvider` 代码（真实 HTTP、真实 DB 落库）。
+
+| 验收项 | 状态 | 证据 |
+| --- | --- | --- |
+| Provider 可以正常切换 | PASS | 单测 `test_gateway_provider_switch_and_unknown_provider`（a/b 两个 provider 切换）；`GET /ai/providers` |
+| API Key 不硬编码 | PASS | 来自 `LLM_API_KEY` 环境变量；Provider 未配置返回 503 |
+| Timeout | PASS | 单测 `test_provider_timeout_is_mapped`（→ 504） |
+| Retry | PASS | 单测 `test_provider_rate_limit_retries_then_fails`（1+2 次）、`test_provider_retries_then_succeeds` |
+| Provider Error | PASS | 500 → 502（实测 `docs/evidence/phase6/01_ai_acceptance.txt`） |
+| Rate Limit | PASS | 429 进入重试路径并最终映射为 429/502 |
+| Token Usage 记录 | PASS | `ai_llm_usage` 表；`GET /ai/usage` summary 实测 calls=2 tokens=66 |
+| 请求日志不泄漏 Secret | PASS | `docs/evidence/phase6/02_log_secret_check.txt`：日志中无 API Key；`redact()` 单测 |
+| 流式输出可以正常结束 | PASS | `POST /ai/chat/stream` 输出 `event: done` + `[DONE]` |
+| 模型返回异常格式不崩溃 | PASS | 非 JSON / 缺 choices / 缺 content 三种情况均映射为 502（单测 + 实测） |
+| 业务模块不得绕过 Gateway | PASS | `AiContentService` 仅持有 `LLMGateway`；Provider 由 Gateway 解析 |
+
+## 5. 前端验收（§47）
+
+`NOT_IMPLEMENTED` — AI Center 前端页面属 Phase 9/10 范围。
+
+## 6. API 验收（§48）
+
+| 接口 | 状态 | 说明 |
+| --- | --- | --- |
+| `GET /ai/providers` | PASS | 200；返回 provider 名称与是否已配置 |
+| `POST /ai/copy/product` | PASS | 200（JSON 文案 + `_meta.usage`）；Provider 异常 502/503 |
+| `POST /ai/translate` | PASS | 200 |
+| `POST /ai/chat/stream` | PASS | SSE，正常结束 |
+| `GET /ai/usage` | PASS | 200；summary + items |
+
+鉴权：普通用户调用 AI 接口 → 403（实测）。
+
+## 7. 数据库验收（§49）
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| Migration（增量） | PASS | `0003 → 0004_ai_usage` 执行成功 |
+| Token Usage 可查询 | PASS | `ai_llm_usage`（provider/model/operation/tokens/latency/requested_by） |
+| Rollback | PASS | `downgrade()` 删除两张表 |
+
+## 8. Connector 验收（§40）
+
+`REAL_INTEGRATION: NOT_VERIFIED`（见 Phase 4）。
+
+## 9. Finance 验收（§41）
+
+Phase 5 通过；本 Phase 回归通过。
+
+## 10. AI / Agent 验收（§43、§44）
+
+§43 见第 4 节；§44（Agent）为 `NOT_IMPLEMENTED`（Phase 7）。
+
+## 11. RAG 验收（§45）
+
+`NOT_IMPLEMENTED` — Phase 8。
+
+## 12. Worker 验收（§46）
+
+本 Phase 未新增 Worker 任务；回归通过。
+
+## 13. Security 检查（§50）
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| Secret 不进入 Git | PASS | `LLM_API_KEY` 仅在 `.env`（已 ignore） |
+| Secret 不写日志 | PASS | 日志实测无密钥；`redact()` 有单测 |
+| 错误信息不泄漏内部细节 | PASS | 上游错误统一 502 + 简要原因 |
+| 敏感 API 权限 | PASS | AI 接口需管理员 |
+
+## 14. Regression Test（§51）
+
+```text
+docs/evidence/phase6/03_pytest.txt: 75 passed
+```
+
+Phase 1–6 全部通过，无回归。
+
+## 15. E2E 验收（§52）
+
+```text
+登录 → provider 列表 → 商品文案生成（含 Token Usage）
+     → 翻译 → 流式输出正常结束 → Usage 记录与归属正确
+     → Provider 500 映射为 502（重试 2 次）→ 异常格式不崩溃
+     → 响应/日志无密钥泄漏 → 普通用户 403
+```
+
+## 16. 测试数量与结果
+
+| 类型 | 数量 | 结果 |
+| --- | --- | --- |
+| Unit / API Test（pytest） | 75 | PASS |
+| Acceptance（Sandbox LLM + 真实 DB，脚本） | 13 项 | PASS |
+
+## 17. 已知问题
+
+19. **真实模型厂商未验证** — `REAL_MODEL_INTEGRATION: NOT_VERIFIED`；配置 `LLM_BASE_URL`/`LLM_API_KEY` 即接入真实厂商（OpenAI 兼容协议）。
+20. **Token 成本未折算金额** — 仅记录 token 数，未按模型单价计算成本（`ai_tasks.cost` 字段预留）。
+21. **DEBUG 日志噪声较大** — dev 环境 httpcore DEBUG 日志冗长，Phase 10 调整日志级别。
+
+## 18. 未完成功能
+
+- AI Center 前端页面（文案/翻译/知识库 UI）
+- 流式输出的 Token Usage 记录（当前仅非流式记录）
+- 模型成本折算
+
+## 19. Blocked 项
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| 真实模型厂商验证 | BLOCKED | 需要真实 LLM API Key（外部资源） |
+
+```text
+Blocked Reason: 无真实 LLM 厂商 API Key
+Required External Resource: LLM_BASE_URL + LLM_API_KEY（OpenAI 兼容）
+Already Verified Parts: Gateway 切换、超时、重试、错误映射、Usage、脱敏、流式结束、异常格式
+Unverified Parts: 与真实厂商的调用与计费
+How To Continue Verification: 配置 LLM_* 后重跑 backend/scripts/ai_acceptance.py（去掉 Sandbox 依赖）
+```
+
+## 20. 最终状态
+
+```text
+PASS
+```
+
+（真实模型厂商项单独标注 BLOCKED，未计入 PASS。）

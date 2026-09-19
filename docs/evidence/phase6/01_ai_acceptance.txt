@@ -1,0 +1,17 @@
+﻿fake LLM listening on 0.0.0.0:9098
+login: OK
+PASS provider listed | [{'name': 'openai_compatible', 'configured': True}]
+PASS product copy generated | status=200 title=Fake LLM Product Title
+PASS copy returns token usage | usage={'prompt_tokens': 11, 'completion_tokens': 22, 'total_tokens': 33}
+PASS translation generated | status=200 title=Fake English Title
+PASS stream terminates with done | len=227
+PASS stream delivered content | chunks=14
+PASS usage recorded | summary={'calls': 2, 'prompt_tokens': 22, 'completion_tokens': 44, 'total_tokens': 66}
+PASS usage attributed to caller | items=2
+PASS provider error mapped (not 500 crash) | status=502 detail={'detail': 'LLM Provider 返回 500（重试 2 次后仍失败）'}
+PASS malformed model output handled | status=502
+PASS secret not leaked in responses | no secret in payloads
+PASS ai endpoints require admin -> 403 | status=403
+
+REAL_MODEL_INTEGRATION: NOT_VERIFIED (sandbox OpenAI-compatible server; no vendor API key)
+RESULT: PASS

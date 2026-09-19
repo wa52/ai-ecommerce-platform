@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import health, tasks
+from app.modules.ai.api.routes import router as ai_router
 from app.modules.commerce.api.routes import router as commerce_router
 from app.modules.finance.api.routes import router as finance_router
 from app.modules.iam.api.routes import router as iam_router
@@ -15,3 +16,4 @@ api_router.include_router(commerce_router)
 api_router.include_router(connectors_router)
 api_router.include_router(stores_router)
 api_router.include_router(finance_router)
+api_router.include_router(ai_router)

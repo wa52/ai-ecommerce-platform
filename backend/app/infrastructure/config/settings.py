@@ -29,6 +29,13 @@ class Settings(BaseSettings):
 
     payment_webhook_secret: str = ""
 
+    llm_provider: str = "openai_compatible"
+    llm_base_url: str = ""
+    llm_api_key: str = ""
+    llm_model: str = "deepseek-chat"
+    llm_timeout: float = 30.0
+    llm_max_retries: int = 2
+
     db_pool_size: int = 5
     db_max_overflow: int = 10
     db_echo: bool = False
