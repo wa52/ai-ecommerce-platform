@@ -1,0 +1,129 @@
+﻿........................................................................ [ 59%]
+.................................................                        [100%]
+============================== warnings summary ===============================
+.venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\AiProjects\AI e-commerce platform\backend\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+.venv\Lib\site-packages\starlette\testclient.py:53
+  D:\AiProjects\AI e-commerce platform\backend\.venv\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=============================== tests coverage ================================
+______________ coverage: platform win32, python 3.13.14-final-0 _______________
+
+Name                                               Stmts   Miss  Cover
+----------------------------------------------------------------------
+app\__init__.py                                        0      0   100%
+app\api\__init__.py                                    0      0   100%
+app\api\v1\__init__.py                                 0      0   100%
+app\api\v1\health.py                                  29      8    72%
+app\api\v1\router.py                                  23      0   100%
+app\api\v1\tasks.py                                   50     22    56%
+app\connectors\__init__.py                             0      0   100%
+app\connectors\base.py                                 7      0   100%
+app\connectors\ecommerce\__init__.py                   0      0   100%
+app\connectors\ecommerce\base.py                      40      0   100%
+app\connectors\ecommerce\registry.py                  19      1    95%
+app\connectors\ecommerce\shopify.py                   77      7    91%
+app\connectors\factory.py                              7      0   100%
+app\connectors\saleor.py                              30      1    97%
+app\infrastructure\__init__.py                         0      0   100%
+app\infrastructure\config\__init__.py                  0      0   100%
+app\infrastructure\config\checks.py                   35     21    40%
+app\infrastructure\config\settings.py                 45      1    98%
+app\infrastructure\database\__init__.py                0      0   100%
+app\infrastructure\database\base.py                    2      0   100%
+app\infrastructure\database\registry.py                6      0   100%
+app\infrastructure\database\session.py                 9      0   100%
+app\infrastructure\http\__init__.py                    0      0   100%
+app\infrastructure\http\middleware.py                 35      3    91%
+app\infrastructure\http\ratelimit.py                  20      0   100%
+app\infrastructure\logging\__init__.py                 0      0   100%
+app\infrastructure\logging\setup.py                   18     12    33%
+app\infrastructure\redis\__init__.py                   0      0   100%
+app\infrastructure\redis\client.py                    12      3    75%
+app\infrastructure\security\__init__.py                0      0   100%
+app\infrastructure\security\crypto.py                 25      6    76%
+app\main.py                                           24      5    79%
+app\modules\__init__.py                                0      0   100%
+app\modules\ai\__init__.py                             0      0   100%
+app\modules\ai\agent\__init__.py                       0      0   100%
+app\modules\ai\agent\api.py                           37      3    92%
+app\modules\ai\agent\runtime.py                      102      4    96%
+app\modules\ai\api\routes.py                          70      9    87%
+app\modules\ai\application\content.py                 50      2    96%
+app\modules\ai\llm\__init__.py                         0      0   100%
+app\modules\ai\llm\base.py                            36      0   100%
+app\modules\ai\llm\gateway.py                         41      7    83%
+app\modules\ai\llm\providers.py                      113     14    88%
+app\modules\ai\llm\usage.py                           18      2    89%
+app\modules\ai\rag\__init__.py                         0      0   100%
+app\modules\ai\rag\api.py                             65     15    77%
+app\modules\ai\rag\embeddings.py                      81     18    78%
+app\modules\ai\rag\models.py                          44      1    98%
+app\modules\ai\rag\service.py                        149      7    95%
+app\modules\ai\repository\models.py                   27      0   100%
+app\modules\ai\tools\__init__.py                       0      0   100%
+app\modules\ai\tools\base.py                          33      1    97%
+app\modules\ai\tools\builtin.py                      137     71    48%
+app\modules\ai\tools\registry.py                      18      1    94%
+app\modules\analytics\__init__.py                      0      0   100%
+app\modules\analytics\api\__init__.py                  0      0   100%
+app\modules\analytics\api\routes.py                   21      2    90%
+app\modules\analytics\application\__init__.py          0      0   100%
+app\modules\analytics\application\service.py          73     24    67%
+app\modules\analytics\domain\__init__.py               0      0   100%
+app\modules\analytics\domain\formulas.py              34      0   100%
+app\modules\analytics\repository\__init__.py           0      0   100%
+app\modules\commerce\__init__.py                       0      0   100%
+app\modules\commerce\api\__init__.py                   0      0   100%
+app\modules\commerce\api\routes.py                   112     28    75%
+app\modules\commerce\application\__init__.py           0      0   100%
+app\modules\commerce\application\factory.py            6      1    83%
+app\modules\commerce\application\service.py          197     27    86%
+app\modules\commerce\domain\__init__.py                0      0   100%
+app\modules\commerce\domain\models.py                 56      0   100%
+app\modules\commerce\repository\__init__.py            0      0   100%
+app\modules\finance\__init__.py                        0      0   100%
+app\modules\finance\api\__init__.py                    0      0   100%
+app\modules\finance\api\routes.py                    150     22    85%
+app\modules\finance\application\__init__.py            0      0   100%
+app\modules\finance\application\service.py           123     73    41%
+app\modules\finance\domain\__init__.py                 0      0   100%
+app\modules\finance\domain\money.py                   32      2    94%
+app\modules\finance\domain\signature.py               18      2    89%
+app\modules\finance\repository\__init__.py             0      0   100%
+app\modules\finance\repository\models.py              97      0   100%
+app\modules\iam\__init__.py                            0      0   100%
+app\modules\iam\api\__init__.py                        0      0   100%
+app\modules\iam\api\deps.py                           22      7    68%
+app\modules\iam\api\routes.py                         49      4    92%
+app\modules\iam\application\__init__.py                0      0   100%
+app\modules\iam\application\factory.py                 6      0   100%
+app\modules\iam\application\service.py                31     13    58%
+app\modules\iam\domain\__init__.py                     0      0   100%
+app\modules\iam\domain\models.py                      15      0   100%
+app\modules\iam\repository\__init__.py                 0      0   100%
+app\modules\store\__init__.py                          0      0   100%
+app\modules\store\api\__init__.py                      0      0   100%
+app\modules\store\api\routes.py                       39     19    51%
+app\modules\store\api\stores.py                       42     12    71%
+app\modules\store\application\__init__.py              0      0   100%
+app\modules\store\application\sync.py                 59      2    97%
+app\modules\store\domain\__init__.py                   0      0   100%
+app\modules\store\domain\models.py                    20      0   100%
+app\modules\store\repository\__init__.py               0      0   100%
+app\modules\store\repository\models.py                16      0   100%
+app\modules\store\repository\store_repository.py      46     16    65%
+app\worker\__init__.py                                 0      0   100%
+app\worker\main.py                                    61     61     0%
+app\worker\registry.py                                 4      0   100%
+app\worker\runner.py                                  35      4    89%
+app\worker\tasks\__init__.py                           1      0   100%
+app\worker\tasks\ping.py                               7      0   100%
+app\worker\tasks\sync.py                              15      7    53%
+----------------------------------------------------------------------
+TOTAL                                               2921    571    80%
+121 passed, 2 warnings in 7.81s

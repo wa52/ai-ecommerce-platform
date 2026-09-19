@@ -1,0 +1,9 @@
+﻿login: OK
+PASS concurrent writes accepted (no 5xx) | accepted=10/10 statuses=[200]
+PASS final quantity is one of the written values (no lost/duplicated writes) | final=13 written=[11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+PASS no duplicate stock rows for same variant/warehouse | rows=1
+PASS stock never negative | min=13
+PASS concurrent duplicate payment -> single transaction | ids=1 created_true=1 statuses=[201]
+PASS only one payment row for the idempotency key | rows=1
+
+RESULT: PASS

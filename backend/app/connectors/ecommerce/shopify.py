@@ -69,10 +69,17 @@ def _gid_to_id(gid: str) -> str:
 class ShopifyConnector(EcommerceConnector):
     platform = "shopify"
 
-    def __init__(self, shop_domain: str | None, access_token: str | None, timeout: float = 15.0):
+    def __init__(
+        self,
+        shop_domain: str | None,
+        access_token: str | None,
+        timeout: float = 15.0,
+        scheme: str = "https",
+    ):
         self.shop_domain = (shop_domain or "").strip()
         self.access_token = (access_token or "").strip()
         self.timeout = timeout
+        self.scheme = scheme or "https"
 
     @property
     def configured(self) -> bool:
@@ -80,7 +87,7 @@ class ShopifyConnector(EcommerceConnector):
 
     @property
     def endpoint(self) -> str:
-        return f"https://{self.shop_domain}/admin/api/{API_VERSION}/graphql.json"
+        return f"{self.scheme}://{self.shop_domain}/admin/api/{API_VERSION}/graphql.json"
 
     async def _graphql(self, query: str, variables: dict[str, Any]) -> dict:
         if not self.configured:

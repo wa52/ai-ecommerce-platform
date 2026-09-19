@@ -164,6 +164,7 @@ services:
       LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
       SHOPIFY_SHOP_DOMAIN: ${SHOPIFY_SHOP_DOMAIN:-}
       SHOPIFY_ACCESS_TOKEN: ${SHOPIFY_ACCESS_TOKEN:-}
+      SHOPIFY_API_SCHEME: ${SHOPIFY_API_SCHEME:-https}
       CORS_ORIGINS: '["http://localhost:3000"]'
     depends_on:
       db:
@@ -191,6 +192,7 @@ services:
       LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
       SHOPIFY_SHOP_DOMAIN: ${SHOPIFY_SHOP_DOMAIN:-}
       SHOPIFY_ACCESS_TOKEN: ${SHOPIFY_ACCESS_TOKEN:-}
+      SHOPIFY_API_SCHEME: ${SHOPIFY_API_SCHEME:-https}
     depends_on:
       - ai-backend
       - cache

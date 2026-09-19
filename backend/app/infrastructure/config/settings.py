@@ -13,6 +13,7 @@ class Settings(BaseSettings):
 
     app_name: str = "AI E-Commerce Platform"
     app_env: str = "dev"
+    log_level: str = ""
     api_v1_prefix: str = "/api/v1"
 
     database_url: PostgresDsn
@@ -24,6 +25,7 @@ class Settings(BaseSettings):
 
     shopify_shop_domain: str = ""
     shopify_access_token: str = ""
+    shopify_api_scheme: str = "https"
 
     store_credential_key: str = ""
 
@@ -46,6 +48,8 @@ class Settings(BaseSettings):
 
     worker_queue: str = "tasks:default"
     worker_result_ttl: int = 3600
+    worker_task_timeout: float = 60.0
+    worker_task_max_retries: int = 1
 
     @field_validator("database_url", "redis_url", mode="before")
     @classmethod

@@ -14,7 +14,7 @@ class ConnectorNotConfigured(Exception):
 @lru_cache
 def get_shopify_connector() -> ShopifyConnector:
     settings = get_settings()
-    return ShopifyConnector(settings.shopify_shop_domain, settings.shopify_access_token)
+    return ShopifyConnector(settings.shopify_shop_domain, settings.shopify_access_token, scheme=settings.shopify_api_scheme)
 
 
 def get_connector(platform: str) -> EcommerceConnector:

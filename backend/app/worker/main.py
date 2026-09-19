@@ -50,12 +50,19 @@ async def main() -> None:
         result_key = f"task:result:{task_id}"
         started = time.monotonic()
         try:
-            result = await run_task(REGISTRY, name, payload)
+            result, attempts = await run_task(
+                REGISTRY,
+                name,
+                payload,
+                timeout=settings.worker_task_timeout,
+                max_retries=settings.worker_task_max_retries,
+            )
             record = {
                 "id": task_id,
                 "task": name,
                 "status": "success",
                 "result": result,
+                "attempts": attempts,
                 "duration_ms": int((time.monotonic() - started) * 1000),
                 "finished_at": time.time(),
             }
@@ -65,6 +72,7 @@ async def main() -> None:
                 "task": name,
                 "status": "failed",
                 "error": str(exc),
+                "attempts": 1,
                 "finished_at": time.time(),
             }
         except Exception as exc:
@@ -73,9 +81,12 @@ async def main() -> None:
                 "task": name,
                 "status": "failed",
                 "error": f"{type(exc).__name__}: {exc}",
+                "attempts": settings.worker_task_max_retries + 1,
                 "finished_at": time.time(),
             }
         await r.set(result_key, json.dumps(record, ensure_ascii=False), ex=settings.worker_result_ttl)
+        await r.lpush("task:history", task_id)
+        await r.ltrim("task:history", 0, 99)
         logger.info("task %s [%s] -> %s", task_id, name, record["status"])
 
     logger.info("worker stopped")

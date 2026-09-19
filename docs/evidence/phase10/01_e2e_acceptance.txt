@@ -1,0 +1,24 @@
+﻿sandbox: shopify :9099, llm :9098
+PASS 1. 鐢ㄦ埛鐧诲綍 | status=200
+PASS 2. 鍒涘缓搴楅摵锛堝嚟鎹姞瀵嗭級 | masked=fake********en
+PASS 3. 骞冲彴鎺堟潈锛圫hopify 杩炴帴锛?| status=200 detail=shop=E2E Sandbox Shop domain=e2e.myshopify.com
+PASS 4. 鍚屾鍟嗗搧锛堝钩鍙?鈫?Saleor锛?| status=200 result={'platform': 'shopify', 'created': 0, 'reused': 1, 'failed': 0, 'errors': []}
+PASS 5. 璁㈠崟璇诲彇锛堝惈骞冲彴鍚屾璁㈠崟锛?| total=3
+PASS 6. 搴撳瓨鏇存柊 | status=200 qty=9
+PASS 7a. Payment | status=201
+PASS 7b. Refund锛堥儴鍒嗛€€娆撅級 | status=201
+PASS 7c. Settlement | net=22.32
+PASS 7d. Webhook 楠岀 + 閲嶅鎶曢€掑箓绛?| bad=401 dup=True
+PASS 8a. Finance 娴佹按鍙拷婧?| entries=32
+PASS 8b. Analytics 鎸囨爣锛圖ashboard 鏁版嵁婧愶級 | gmv=119.94 profit=-1145.74
+PASS 9a. AI 鍟嗗搧鏂囨 | status=200
+PASS 9b. AI 缈昏瘧 | status=200
+PASS 10. RAG 鐭ヨ瘑搴撴绱?+ 寮曠敤鍥炵瓟 | grounded=True contexts=1
+PASS 11. Agent 鏌ヨ鐪熷疄涓氬姟鏁版嵁 | tool=analytics.sales_summary sampled=3
+PASS 12. Agent 璋冪敤 RAG 鑳藉姏 | tool=rag.search
+PASS 13. 鍓嶇鍙揪锛堢粨鏋滃彲杩斿洖鍓嶇锛?| status=200
+PASS 14. 鏉冮檺绾︽潫锛堟櫘閫氱敤鎴峰彈闄愶級 | finance=403 analytics=403
+
+STEPS: 19
+REAL_INTEGRATION: NOT_VERIFIED (Shopify 涓?LLM 鍧囦负 Sandbox)
+RESULT: PASS

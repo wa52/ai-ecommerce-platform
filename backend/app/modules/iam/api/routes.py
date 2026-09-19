@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field
 
 from app.connectors.base import CommerceAdapter
@@ -44,7 +44,20 @@ class AdminOverviewResponse(BaseModel):
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(req: LoginRequest, service: IamService = Depends(get_iam_service)) -> LoginResponse:
+async def login(
+    req: LoginRequest, request: Request, service: IamService = Depends(get_iam_service)
+) -> LoginResponse:
+    from app.infrastructure.http.ratelimit import RateLimiter
+
+    limiter = RateLimiter(limit=10, window_seconds=60, prefix="login")
+    client_key = request.client.host if request.client else "unknown"
+    allowed, remaining = await limiter.check(client_key)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="登录尝试过于频繁，请稍后重试",
+            headers={"Retry-After": "60"},
+        )
     try:
         result = await service.login(req.email, req.password)
     except AuthError as exc:
