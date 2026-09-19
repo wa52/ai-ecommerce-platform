@@ -157,6 +157,12 @@ query ProductTypeBySlug($slug: String!) {
 }
 """
 
+_PRODUCT_TYPE_OF_PRODUCT_QUERY = """
+query ProductTypeOfProduct($id: ID!) {
+  product(id: $id) { id productType { id name } }
+}
+"""
+
 _VARIANT_ATTRIBUTES_QUERY = """
 query VariantAttributes($id: ID!) {
   productType(id: $id) {
@@ -307,6 +313,10 @@ class CommerceService:
             )
             for c in data.get("channels", [])
         ]
+
+    async def list_warehouses(self) -> list[dict]:
+        data = await self._gql(_WAREHOUSES_QUERY)
+        return [e["node"] for e in ((data.get("warehouses") or {}).get("edges") or [])]
 
     # ---------- Product ----------
 
@@ -464,12 +474,13 @@ class CommerceService:
 
     async def get_variant_attribute_requirements(self, product_id: str) -> dict:
         """返回商品的 productType 所需的变体属性（含可选值），供前端/调用方选择。"""
-        product = await self.get_product(product_id)
-        data = await self._gql(_PRODUCT_TYPE_BY_SLUG_QUERY, {"slug": get_settings().saleor_default_product_type_slug})
-        edges = ((data.get("productTypes") or {}).get("edges")) or []
-        type_node = edges[0]["node"] if edges else None
-        if not type_node:
-            return {"product_type": product.product_type, "attributes": []}
+        data = await self._gql(_PRODUCT_TYPE_OF_PRODUCT_QUERY, {"id": product_id})
+        product = data.get("product")
+        if not product:
+            raise NotFoundError(f"商品不存在：{product_id}")
+        type_node = product.get("productType") or {}
+        if not type_node.get("id"):
+            return {"product_type": None, "attributes": []}
         attrs = await self._gql(_VARIANT_ATTRIBUTES_QUERY, {"id": type_node["id"]})
         node = attrs.get("productType") or {}
         return {

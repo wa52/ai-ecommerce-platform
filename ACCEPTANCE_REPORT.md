@@ -9,7 +9,7 @@
 | Phase 1 | 基础骨架与基础设施 | PASS | 见下方《Phase 1》 |
 | Phase 2 | IAM（身份 / Token / RBAC） | PASS | 见下方《Phase 2》 |
 | Phase 3 | 电商核心（Product / Order / Inventory） | PASS | 见下方《Phase 3》 |
-| Phase 4 | 平台接入（Connector） | NOT_IMPLEMENTED | — |
+| Phase 4 | 平台接入（Connector） | PASS（REAL_INTEGRATION: NOT_VERIFIED） | 见下方《Phase 4》 |
 | Phase 5 | Finance | NOT_IMPLEMENTED | — |
 | Phase 6 | 基础 AI（LLM Gateway / 文案 / 翻译） | NOT_IMPLEMENTED | — |
 | Phase 7 | Agent | NOT_IMPLEMENTED | — |
@@ -533,3 +533,175 @@ Phase 1（8）+ Phase 2（7）+ Phase 3（10）全部通过，无回归。
 ```text
 PASS
 ```
+
+---
+
+# Phase 4 — 平台接入（Connector）
+
+> 状态：PASS（平台侧为 Sandbox，`REAL_INTEGRATION: NOT_VERIFIED`）。
+
+## 1. Build 信息
+
+| 项 | 值 |
+| --- | --- |
+| Phase | Phase 4 — Connector 插件系统 + Store 凭据安全 |
+| 日期 | 2026-09-20 |
+| 方案 | `EcommerceConnector` 统一接口 + `ShopifyConnector`（GraphQL Admin API）；平台 DTO → 统一模型；Store 凭据 Fernet 加密落库 |
+| 新增代码 | `connectors/ecommerce/{base,shopify,registry}.py`、`modules/store/{api,application,domain,repository}`、`infrastructure/security/crypto.py`、Alembic `0002_platform_stores`、Worker `sync.products` |
+
+## 2. Git Commit SHA
+
+```text
+见提交：feat(connectors): Shopify Connector + Store 凭据加密存储
+```
+
+## 3. 运行环境
+
+同 Phase 1；新增 `STORE_CREDENTIAL_KEY`（必填）。
+
+## 4. 功能验收（§40）
+
+```text
+REAL_INTEGRATION: NOT_VERIFIED
+```
+
+未提供真实 Shopify 店铺凭据。按 spec §40 允许的方式，用 **本地 Fake Shopify GraphQL 服务（Sandbox）** 驱动**真实 `ShopifyConnector` 代码**，并同步进 Saleor。因此平台集成状态明确标注为 NOT_VERIFIED，不声明为真实平台接入完成。
+
+| 验收项 | 状态 | 证据 |
+| --- | --- | --- |
+| Connector 接口与插件注册 | PASS | `GET /connectors/platforms` → shopify（configured=False） |
+| 未配置凭据时健康检查可解释 | PASS | health.ok=False，提示缺少 `SHOPIFY_SHOP_DOMAIN`/`SHOPIFY_ACCESS_TOKEN` |
+| 未配置时拒绝真实同步 | PASS | `POST /connectors/shopify/sync/products` → 409 且含 `NOT_VERIFIED` |
+| 同步任务可入队 | PASS | `POST /tasks {name: sync.products}` → 202 |
+| Sandbox 平台可达 | PASS | Fake Shopify GraphQL 200（`docs/evidence/phase4/01_connector_acceptance.txt`） |
+| 平台原始 DTO 不泄漏到 Commerce Domain | PASS | 统一模型 `ExternalProduct`/`ExternalOrder` → `UnifiedProduct`/`UnifiedOrder` |
+| Token 失效（401） | PASS | 单测 `test_shopify_token_invalid_raises` |
+| Rate Limit（429） | PASS | 单测 `test_shopify_rate_limit_raises` |
+| 平台返回异常（GraphQL errors） | PASS | 单测 `test_shopify_platform_error_raises` |
+| 网络错误 | PASS | 单测 `test_shopify_network_error_raises` |
+| 分页 | PASS | Connector 返回 next cursor；`pageInfo.hasNextPage` 驱动 |
+| 空数据 | PASS | 单测 `test_sync_empty_platform_data`（created=0，无错误） |
+| 部分字段缺失 | PASS | 单测 `test_sync_missing_fields_uses_fallbacks`（回退 SKU/slug） |
+| 重复同步不产生重复核心数据 | PASS | 单测 `test_sync_creates_product_and_is_idempotent`（第二次 reused=1，created=0） |
+| 同步中断后重新执行 | PASS | 单测 `test_sync_interrupted_then_resumed_is_idempotent`（中断后补同步，不重复） |
+
+## 5. 前端验收（§47）
+
+`NOT_IMPLEMENTED` — 店铺管理 UI 属后续（后端 CRUD 已可用）。
+
+## 6. API 验收（§48）
+
+| 接口 | 状态 | 说明 |
+| --- | --- | --- |
+| `GET /connectors/platforms` | PASS | 200；管理员可见 |
+| `GET /connectors/{platform}/health` | PASS | 200；未知平台 404 |
+| `POST /connectors/{platform}/sync/products` | PASS | 未配置 409；配置后执行同步 |
+| `POST /stores` | PASS | 201；凭据加密存储 |
+| `GET /stores` / `GET /stores/{id}` | PASS | 200；不存在 404 |
+| `PATCH /stores/{id}` | PASS | 200 |
+| `POST /stores/{id}/disable` | PASS | 200（status=disabled） |
+
+鉴权：普通用户访问 `/stores` → 403（实测）。
+
+## 7. 数据库验收（§49）
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| 全新/增量 Migration | PASS | `0001_baseline` → `0002_platform_stores` 执行成功 |
+| 凭据加密落库 | PASS | `credentials_encrypted` 列存 Fernet 密文；API 仅返回 `credentials_masked` |
+| Index | PASS | `ix_platform_stores_platform` |
+| Rollback | PASS | `downgrade()` 删除索引与表 |
+
+## 8. Connector 验收（§40）
+
+见第 4 节；结论 `REAL_INTEGRATION: NOT_VERIFIED`。
+
+## 9. Finance 验收（§41）
+
+`NOT_IMPLEMENTED` — Phase 5。
+
+## 10. AI / Agent 验收（§43、§44）
+
+`NOT_IMPLEMENTED` — Phase 6/7。
+
+## 11. RAG 验收（§45）
+
+`NOT_IMPLEMENTED` — Phase 8。
+
+## 12. Worker 验收（§46）
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| Task 创建 / 消费 / 状态查询 | PASS | 回归通过（Phase 1 证据） |
+| 同步任务注册 | PASS | `sync.products` 入队 202；未配置平台时任务失败可见 |
+
+## 13. Security 检查（§50）
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| Secret 不进入 Git | PASS | `STORE_CREDENTIAL_KEY` 仅存于 `.env`（已 ignore） |
+| Credential 不写日志 | PASS | 凭据仅在解密时使用，不落日志 |
+| Credential 不返回前端 | PASS | 响应仅含脱敏值（实测响应体不含明文） |
+| 缺失密钥可操作报错 | PASS | `CredentialCipherError` 提示生成 Fernet 密钥的命令 |
+| 敏感 API 权限 | PASS | 店铺/Connector 接口需管理员 |
+
+## 14. Regression Test（§51）
+
+```text
+docs/evidence/phase4/02_pytest.txt: 44 passed
+```
+
+Phase 1–4 全部测试通过，无回归。
+
+## 15. E2E 验收（§52）
+
+```text
+管理员登录 → 创建 Store（凭据加密）→ 平台列表显示 shopify(configured=False)
+  → 未配置时同步被拒（409，标注 NOT_VERIFIED）
+  → Fake Shopify Sandbox 可达
+  → Connector 单测覆盖 token 失效/限流/平台异常/网络错误/分页/空数据/字段缺失/重复同步/中断续跑
+```
+
+## 16. 测试数量与结果
+
+| 类型 | 数量 | 结果 |
+| --- | --- | --- |
+| Unit / API Test（pytest） | 44 | PASS |
+| Acceptance（Sandbox + 真实 Saleor，脚本） | 10 项 | PASS |
+
+## 17. 已知问题
+
+13. **真实平台凭据缺失** — `REAL_INTEGRATION: NOT_VERIFIED`；配置 `SHOPIFY_SHOP_DOMAIN`/`SHOPIFY_ACCESS_TOKEN` 后即可执行真实同步。
+14. **Shopify 库存接口复用商品接口** — `get_inventory` 目前从商品变体读取库存；独立 InventoryLevel API 待真实店铺接入后按需替换。
+15. **同步为单向（平台 → Saleor）** — 回写平台（create_product/update_inventory 等）接口已在 `EcommerceConnector` 声明，Shopify 侧实现待 Phase 10 前补齐。
+
+## 18. 未完成功能
+
+- 店铺管理前端页面
+- 订单同步任务（`sync.orders`）
+- Shopify 侧写回（创建/更新商品、更新库存）
+- 真实平台凭据接入与验证
+
+## 19. Blocked 项
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| 真实 Shopify 集成验证 | BLOCKED | 需要真实店铺域名与 Admin API token（外部资源） |
+
+已按 spec §55 记录：
+
+```text
+Blocked Reason: 无真实 Shopify 店铺凭据
+Required External Resource: SHOPIFY_SHOP_DOMAIN + SHOPIFY_ACCESS_TOKEN
+Already Verified Parts: Connector 代码、错误路径、幂等、Store 凭据加密、Sandbox 全链路
+Unverified Parts: 真实平台数据读写
+How To Continue Verification: 在 .env 配置凭据 → POST /connectors/shopify/sync/products
+```
+
+## 20. 最终状态
+
+```text
+PASS
+```
+
+（平台真实集成项单独标注 BLOCKED，未计入 PASS。）

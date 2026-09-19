@@ -156,6 +156,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ecommerce}:${POSTGRES_PASSWORD}@db:5432/${AI_DB:-ai_platform}
       REDIS_URL: redis://cache:6379/0
       SALEOR_API_URL: http://saleor-api:8000/graphql/
+      STORE_CREDENTIAL_KEY: ${STORE_CREDENTIAL_KEY:?STORE_CREDENTIAL_KEY is required}
+      SHOPIFY_SHOP_DOMAIN: ${SHOPIFY_SHOP_DOMAIN:-}
+      SHOPIFY_ACCESS_TOKEN: ${SHOPIFY_ACCESS_TOKEN:-}
       CORS_ORIGINS: '["http://localhost:3000"]'
     depends_on:
       db:
@@ -175,6 +178,9 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ecommerce}:${POSTGRES_PASSWORD}@db:5432/${AI_DB:-ai_platform}
       REDIS_URL: redis://cache:6379/0
+      STORE_CREDENTIAL_KEY: ${STORE_CREDENTIAL_KEY:?STORE_CREDENTIAL_KEY is required}
+      SHOPIFY_SHOP_DOMAIN: ${SHOPIFY_SHOP_DOMAIN:-}
+      SHOPIFY_ACCESS_TOKEN: ${SHOPIFY_ACCESS_TOKEN:-}
     depends_on:
       - ai-backend
       - cache

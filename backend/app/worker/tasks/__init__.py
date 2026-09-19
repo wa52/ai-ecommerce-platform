@@ -1,1 +1,1 @@
-from app.worker.tasks import ping  # noqa: F401
+from app.worker.tasks import ping, sync  # noqa: F401

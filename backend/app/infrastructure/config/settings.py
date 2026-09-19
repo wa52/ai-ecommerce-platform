@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     saleor_default_category_slug: str = "default-category"
     saleor_default_category_name: str = "Default Category"
 
+    shopify_shop_domain: str = ""
+    shopify_access_token: str = ""
+
+    store_credential_key: str = ""
+
     db_pool_size: int = 5
     db_max_overflow: int = 10
     db_echo: bool = False

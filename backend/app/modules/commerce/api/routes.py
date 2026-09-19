@@ -200,9 +200,8 @@ async def list_inventory(
 
 
 @router.get("/warehouses")
-async def list_warehouses(_: AdminUserDep, adapter: CommerceAdapter = Depends(get_commerce_adapter), token: str = Depends(get_bearer_token)) -> list[dict]:
-    data = await adapter.graphql("{ warehouses(first: 50) { edges { node { id name } } } }", token=token)
-    return [e["node"] for e in ((data.get("warehouses") or {}).get("edges") or [])]
+async def list_warehouses(_: AdminUserDep, service: ServiceDep) -> list[dict]:
+    return await service.list_warehouses()
 
 
 @router.post("/inventory", response_model=list[UnifiedStock])

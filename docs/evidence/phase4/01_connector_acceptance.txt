@@ -1,0 +1,15 @@
+﻿fake shopify listening on 127.0.0.1:9099
+login: OK
+PASS platforms listed | [{'platform': 'shopify', 'configured': False, 'shop_domain': None}]
+PASS store created with encrypted credentials | status=201
+PASS credential never returned (masked only) | masked=fake********en
+PASS shopify health reported | {'platform': 'shopify', 'ok': False, 'detail': '未配置 Shopify 凭据（SHOPIFY_SHOP_DOMAIN / SHOPIFY_ACCESS_TOKEN）'}
+PASS sync blocked when not configured -> 409 | status=409
+PASS sync task accepted | status=202
+PASS store listed | count=2
+PASS store disabled | status=200
+PASS customer cannot list stores -> 403 | status=403
+PASS fake shopify reachable | status=200
+
+REAL_INTEGRATION: NOT_VERIFIED (Fake Shopify sandbox used; no real platform credentials)
+RESULT: PASS
