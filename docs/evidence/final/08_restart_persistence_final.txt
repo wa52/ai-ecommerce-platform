@@ -1,0 +1,4 @@
+﻿FULL STACK RESTART PERSISTENCE (final state)
+BEFORE: saleor_users=2 alembic=0005_rag payments=24 rag_chunks=17
+aft_users=2 alembic=0005_rag payments=24 chunks=17
+RESULT: data preserved across restart

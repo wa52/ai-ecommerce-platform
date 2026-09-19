@@ -632,7 +632,18 @@ class CommerceService:
         errors = payload.get("errors") or []
         if errors:
             detail = "; ".join(f"{e.get('field')}: {e.get('message')}" for e in errors)
-            status = 409 if "already exists" in detail else 400
-            raise CommerceError(f"{action}：{detail}", status_code=status)
+            lowered = detail.lower()
+            if "already exists" in lowered:
+                raise CommerceError(f"{action}：{detail}", status_code=409)
+            if (
+                "does not exist" in lowered
+                or "doesn't exist" in lowered
+                or "not found" in lowered
+                or "couldn't resolve" in lowered
+                or "could not resolve" in lowered
+                or "couldn't find" in lowered
+            ):
+                raise CommerceError(f"{action}：{detail}", status_code=404)
+            raise CommerceError(f"{action}：{detail}", status_code=400)
         if not any(k for k in payload if k != "errors"):
             raise CommerceError(f"{action}：Saleor 未返回结果")

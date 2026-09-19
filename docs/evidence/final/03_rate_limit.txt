@@ -1,0 +1,8 @@
+﻿LOGIN RATE LIMIT (real HTTP, limit=10/min per IP)
+statuses: 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 429, 429, 429
+429 count: 3
+Retry-After header present: 
+429 Retry-After = 60
+--- flush rate limit keys before further verification ---
+ratelimit:login:172.18.0.1
+1

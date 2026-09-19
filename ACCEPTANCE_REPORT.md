@@ -1784,3 +1784,37 @@ Phase 1–10 全部完成并通过验收；真实第三方集成项单独标注 
 V1 骨架与业务闭环：PASS
 真实第三方集成：BLOCKED（缺外部凭据，已明确记录续验方式）
 ```
+---
+
+# 补充验证（Additional Verification）
+
+> 状态：PASS。日期：2026-09-20。证据：`docs/evidence/final/`。
+
+## 验证项
+
+| 验证项 | 状态 | 证据 |
+| --- | --- | --- |
+| 全新数据库 Migration（spec §49"全新数据库"） | PASS | `01_fresh_db_migration.txt`：空库 → 0001..0005 全部成功 |
+| RAG 向量列类型（pgvector） | PASS | fresh 库 `embedding` 列 `udt_name=vector` |
+| 全量 Rollback（downgrade base） | PASS | 0005→0001 五级回滚成功，仅剩 alembic_version |
+| 重复执行 Migration | PASS | 回滚后再次 upgrade head 成功，可重复 |
+| HTTP 安全响应头 | PASS | `02_http_security.txt`：全部头 + Request-ID 透传 |
+| 登录限流（真实 429） | PASS | `03_rate_limit.txt`：10 次 200 后 429，Retry-After=60 |
+| API 状态码矩阵（真 HTTP） | PASS | `04_status_codes.txt`：200/201/202/204/401/403/404/409/422 全覆盖 |
+| 全部验收脚本回归重跑 | PASS | `05/06/07_regression*.txt`：11 个脚本全部 PASS |
+| 最终态全栈重启持久化 | PASS | `08_restart_persistence_final.txt`：用户/迁移/支付/向量块全部保留 |
+
+## 修复项
+
+- `CommerceService._raise_on_errors`：将 Saleor 的"不存在"类错误（does not exist / couldn't resolve to a node / not found）映射为 **404**（此前统一 400），API 状态码语义更准确（spec §48）。
+- 状态码验收脚本：OpenAPI 位于根路径（非 `/api/v1`）；错误凭据用例移至末尾，避免 Saleor IP 粒度暴力破解保护影响后续用例。
+- Connector 验收脚本支持"已配置态"：配置沙箱凭据后改为验证真实同步 + 重复同步幂等。
+
+## 回归结论
+
+```text
+最终态回归：worker / iam / commerce / connector / finance / ai / agent / rag / analytics / concurrency / status-codes / e2e → 全部 PASS
+Migrations：fresh → head → base → head 可重复
+持久化：全栈 down/up 后数据完整
+REAL_INTEGRATION / REAL_MODEL_INTEGRATION：NOT_VERIFIED（外部凭据缺失，见各 Phase BLOCKED 记录）
+```

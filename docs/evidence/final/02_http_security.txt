@@ -1,0 +1,10 @@
+﻿HTTP SECURITY VERIFICATION (real HTTP)
+GET /health/live status: 200
+X-Request-ID = 6dced7c692a4455c9054e752c576d626
+X-Response-Time-ms = 0
+X-Content-Type-Options = nosniff
+X-Frame-Options = DENY
+Referrer-Policy = same-origin
+Permissions-Policy = geolocation=(), microphone=(), camera=()
+--- request id propagation ---
+sent trace-final-001 -> returned trace-final-001

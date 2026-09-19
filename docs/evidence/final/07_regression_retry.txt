@@ -1,0 +1,8 @@
+﻿=== concurrency ===
+RESULT: PASS
+=== status codes ===
+RESULT: PASS
+=== e2e ===
+PASS 4. 鍚屾鍟嗗搧锛堝钩鍙?鈫?Saleor锛?| status=200 result={'platform': 'shopify', 'created': 0, 'reused': 1, 'failed': 0, 'errors': []}
+REAL_INTEGRATION: NOT_VERIFIED (Shopify 涓?LLM 鍧囦负 Sandbox)
+RESULT: PASS

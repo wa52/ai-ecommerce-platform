@@ -1,0 +1,20 @@
+﻿FRESH DATABASE MIGRATION + ROLLBACK (spec 49)
+--- upgrade head from empty DB ---
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_baseline, baseline - empty schema
+INFO  [alembic.runtime.migration] Running upgrade 0001_baseline -> 0002_platform_stores, platform_stores table
+INFO  [alembic.runtime.migration] Running upgrade 0002_platform_stores -> 0003_finance, finance tables
+INFO  [alembic.runtime.migration] Running upgrade 0003_finance -> 0004_ai_usage, ai_llm_usage / ai_tasks
+INFO  [alembic.runtime.migration] Running upgrade 0004_ai_usage -> 0005_rag, RAG tables (knowledge_bases / documents / document_chunks)
+--- rollback to base ---
+INFO  [alembic.runtime.migration] Running downgrade 0005_rag -> 0004_ai_usage, RAG tables (knowledge_bases / documents / document_chunks)
+INFO  [alembic.runtime.migration] Running downgrade 0004_ai_usage -> 0003_finance, ai_llm_usage / ai_tasks
+INFO  [alembic.runtime.migration] Running downgrade 0003_finance -> 0002_platform_stores, finance tables
+INFO  [alembic.runtime.migration] Running downgrade 0002_platform_stores -> 0001_baseline, platform_stores table
+INFO  [alembic.runtime.migration] Running downgrade 0001_baseline -> , baseline - empty schema
+--- re-upgrade (repeatability) ---
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_baseline, baseline - empty schema
+INFO  [alembic.runtime.migration] Running upgrade 0001_baseline -> 0002_platform_stores, platform_stores table
+INFO  [alembic.runtime.migration] Running upgrade 0002_platform_stores -> 0003_finance, finance tables
+INFO  [alembic.runtime.migration] Running upgrade 0003_finance -> 0004_ai_usage, ai_llm_usage / ai_tasks
+INFO  [alembic.runtime.migration] Running upgrade 0004_ai_usage -> 0005_rag, RAG tables (knowledge_bases / documents / document_chunks)
+DROP DATABASE

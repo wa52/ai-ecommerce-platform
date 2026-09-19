@@ -1,0 +1,15 @@
+﻿fake shopify listening on 127.0.0.1:9099
+login: OK
+PASS platforms listed | [{'platform': 'shopify', 'configured': True, 'shop_domain': 'host.docker.internal:9099'}]
+PASS store created with encrypted credentials | status=201
+PASS credential never returned (masked only) | masked=fake********en
+shopify configured: True
+PASS sync executed (configured connector) | status=200 result={'platform': 'shopify', 'created': 0, 'reused': 1, 'failed': 0, 'errors': []}
+PASS repeat sync is idempotent (no duplicates) | result={'platform': 'shopify', 'created': 0, 'reused': 1, 'failed': 0, 'errors': []}
+PASS store listed | count=6
+PASS store disabled | status=200
+PASS customer cannot list stores -> 403 | status=403
+PASS fake shopify reachable | status=200
+
+REAL_INTEGRATION: NOT_VERIFIED (Fake Shopify sandbox used; no real platform credentials)
+RESULT: PASS

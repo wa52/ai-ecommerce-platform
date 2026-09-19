@@ -1,0 +1,33 @@
+﻿REGRESSION: re-run all acceptance scripts at final state
+version: b708f2c
+=== worker ===
+created: {'id': '3f17a07df704424ab8f9b495c7cba062', 'name': 'ping', 'status': 'queued'}
+status: {"id": "3f17a07df704424ab8f9b495c7cba062", "task": "ping", "status": "success", "result": {"pong": true, "echo": {"source": "acceptance"}}, "error": null, "duration_ms": 0}
+unknown task -> failed | 'unknown task: no_such_task'
+acceptance_worker_check exit: 0
+=== iam ===
+RESULT: PASS
+=== commerce ===
+RESULT: PASS
+=== connector ===
+REAL_INTEGRATION: NOT_VERIFIED (Fake Shopify sandbox used; no real platform credentials)
+RESULT: FAIL sync blocked when not configured -> 409, customer cannot list stores -> 403
+=== finance ===
+RESULT: PASS
+=== ai ===
+REAL_MODEL_INTEGRATION: NOT_VERIFIED (sandbox OpenAI-compatible server; no vendor API key)
+RESULT: PASS
+=== agent ===
+PASS tool result contains real order aggregates | sampled=4 by_currency=['USD']
+PASS final answer grounded in tool result (numbers match) | answer=渚濇嵁宸ュ叿杩斿洖鐨勭湡瀹炶鍗曟暟鎹細USD 璁㈠崟 4 绗旓紝閿€鍞 159.92
+PASS no-data path returns explicit empty result | total_count=0 answer=宸ュ叿杩斿洖鏁版嵁锛歿"total_count": 0, "items": []}
+RESULT: PASS
+=== rag ===
+RESULT: PASS
+=== analytics ===
+RESULT: PASS
+=== concurrency ===
+=== status codes ===
+=== e2e ===
+FAIL 4. 鍚屾鍟嗗搧锛堝钩鍙?鈫?Saleor锛?| status=401 result={'detail': '鏈彁渚涜闂护鐗?}
+=== worker (trust commission) ===

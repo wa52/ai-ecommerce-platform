@@ -184,21 +184,38 @@ def main() -> int:
     )
     store_id = store["id"]
 
-    # 3. 未配置平台健康检查（未设置 env 凭据）
-    status, health = api("GET", "/connectors/shopify/health", token=token)
-    check("shopify health reported", status == 200 and "ok" in health, f"{health}")
+    # 3. Connector 配置状态决定验收路径
+    status, platforms = api("GET", "/connectors/platforms", token=token)
+    configured = bool(platforms and platforms[0].get("configured"))
+    print(f"shopify configured: {configured}")
 
-    # 4. 未配置时拒绝真实同步
-    status, denied = api("POST", "/connectors/shopify/sync/products", token=token)
-    check(
-        "sync blocked when not configured -> 409",
-        status == 409 and "NOT_VERIFIED" in json.dumps(denied, ensure_ascii=False),
-        f"status={status}",
-    )
-
-    # 5. 未配置的 Connector 通过 Worker 任务失败可见
-    status, task = api("POST", "/tasks", {"name": "sync.products", "payload": {"platform": "shopify"}}, token)
-    check("sync task accepted", status == 202, f"status={status}")
+    if not configured:
+        # 未配置：健康检查应可解释、真实同步应被拒绝
+        status, health = api("GET", "/connectors/shopify/health", token=token)
+        check("shopify health reported", status == 200 and "ok" in health, f"{health}")
+        status, denied = api("POST", "/connectors/shopify/sync/products", token=token)
+        check(
+            "sync blocked when not configured -> 409",
+            status == 409 and "NOT_VERIFIED" in json.dumps(denied, ensure_ascii=False),
+            f"status={status}",
+        )
+        # 未配置的 Connector 通过 Worker 任务失败可见
+        status, task = api("POST", "/tasks", {"name": "sync.products", "payload": {"platform": "shopify"}}, token)
+        check("sync task accepted", status == 202, f"status={status}")
+    else:
+        # 已配置（沙箱凭据）：执行真实同步并验证幂等
+        status, sync1 = api("POST", "/connectors/shopify/sync/products?limit=10", token=token)
+        check(
+            "sync executed (configured connector)",
+            status == 200 and isinstance(sync1.get("created"), int),
+            f"status={status} result={sync1}",
+        )
+        status, sync2 = api("POST", "/connectors/shopify/sync/products?limit=10", token=token)
+        check(
+            "repeat sync is idempotent (no duplicates)",
+            status == 200 and sync2.get("created", 0) == 0 and sync2.get("reused", 0) >= 1,
+            f"result={sync2}",
+        )
 
     # 6. 凭据与店铺生命周期
     status, listed = api("GET", "/stores", token=token)
