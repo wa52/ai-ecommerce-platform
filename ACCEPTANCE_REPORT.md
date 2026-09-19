@@ -15,9 +15,11 @@
 ## 2. Git Commit SHA
 
 ```text
-见本 Phase 提交：feat(skeleton): Phase 1 基础设施骨架（Saleor + FastAPI AI 扩展层）
-（SHA 由本次提交产生，记录于 Git 日志）
+1264d64c79993d8f224302e79cacc993d4e9242e
+feat(skeleton): Phase 1 基础设施骨架（Saleor Commerce Core + FastAPI AI 扩展层）
 ```
+
+本报告修订记录对应 Git 日志中的后续 docs 提交（回填 SHA）。
 
 ## 3. 运行环境
 
