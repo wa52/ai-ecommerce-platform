@@ -10,7 +10,7 @@
 | Phase 2 | IAM（身份 / Token / RBAC） | PASS | 见下方《Phase 2》 |
 | Phase 3 | 电商核心（Product / Order / Inventory） | PASS | 见下方《Phase 3》 |
 | Phase 4 | 平台接入（Connector） | PASS（REAL_INTEGRATION: NOT_VERIFIED） | 见下方《Phase 4》 |
-| Phase 5 | Finance | NOT_IMPLEMENTED | — |
+| Phase 5 | Finance | PASS | 见下方《Phase 5》 |
 | Phase 6 | 基础 AI（LLM Gateway / 文案 / 翻译） | NOT_IMPLEMENTED | — |
 | Phase 7 | Agent | NOT_IMPLEMENTED | — |
 | Phase 8 | RAG | NOT_IMPLEMENTED | — |
@@ -705,3 +705,194 @@ PASS
 ```
 
 （平台真实集成项单独标注 BLOCKED，未计入 PASS。）
+
+---
+
+# Phase 5 — Finance
+
+> 状态：PASS。
+
+## 1. Build 信息
+
+| 项 | 值 |
+| --- | --- |
+| Phase | Phase 5 — Finance（独立领域） |
+| 日期 | 2026-09-20 |
+| 方案 | Finance 作为独立 Domain 自建表（不复用 Saleor 订单字段做记账）；金额统一 `Decimal` + 币种精度 + half-up 舍入；幂等键唯一约束；Webhook HMAC 验签 |
+| 新增代码 | `modules/finance/{domain,application,api,repository}`、Alembic `0003_finance` |
+| 核心表 | `payments`、`payment_transactions`、`refunds`、`refund_transactions`、`settlements`、`settlement_items`、`reconciliations`、`finance_ledger` |
+
+## 2. Git Commit SHA
+
+```text
+见提交：feat(finance): 支付/退款/结算/对账（幂等 + Decimal + 验签）
+```
+
+## 3. 运行环境
+
+同 Phase 1；新增 `PAYMENT_WEBHOOK_SECRET`（必填）。
+
+## 4. 功能验收（§41）
+
+| 验收项 | 状态 | 证据 |
+| --- | --- | --- |
+| 正常支付 | PASS | payment created -> 201 |
+| 支付失败（金额非法/为零） | PASS | zero amount rejected -> 422 |
+| 重复支付请求 | PASS | 同一 Idempotency Key 请求 4 次 → 仅 1 笔交易（`created=false`） |
+| 重复 Webhook | PASS | duplicate=True，且 payment 记录仅 1 条 |
+| 非法 Webhook 签名 | PASS | invalid webhook signature -> 401 |
+| 全额退款 | PASS | 累计 refunded=100.00 |
+| 部分退款 | PASS | partial refund -> 201（30.00） |
+| 重复退款 | PASS | 同 key → created=false，无新交易 |
+| 超额退款 | PASS | over refund rejected -> 409 |
+| 结算 | PASS | gross=1500.00 |
+| 手续费（平台/支付） | PASS | platform_fee=75.00（5%）、payment_fee=30.00（2%） |
+| 多币种 | PASS | JPY 支付 amount=1000（0 位小数） |
+| 汇率 | NOT_IMPLEMENTED | 当前为单币种结算；汇率换算表待 Phase 9 利润分析时引入 |
+| 对账差异 | PASS | matched（diff=0.00）/ mismatched（diff=-5.00） |
+
+核心约束验证（spec §41）：
+
+```text
+同一 Idempotency Key → 重复请求 N 次 → 只能产生一次有效交易   ✅ 实测
+累计退款金额 <= 可退款金额                                  ✅ 实测（超限 409）
+```
+
+金额处理：
+
+| 规则 | 状态 | 说明 |
+| --- | --- | --- |
+| 禁止 float | PASS | `to_decimal` 对 float 直接抛 `MoneyError`（单测） |
+| Decimal / 明确 currency | PASS | 所有金额列 `Numeric(18,4)`，接口按币种精度输出 |
+| 明确 rounding | PASS | `ROUND_HALF_UP`，按 ISO 4217 exponent 量化（USD 2 位 / JPY 0 位） |
+
+可追溯性：
+
+| 项 | 状态 | 证据 |
+| --- | --- | --- |
+| Transaction ID | PASS | `payment_transactions.external_id` / `refund_transactions.external_id` |
+| 时间 | PASS | `created_at`（timezone-aware） |
+| 来源 | PASS | `source`（api / webhook） |
+| 状态变化记录 | PASS | 支付/退款/结算状态列 |
+| Audit Log | PASS | `finance_ledger`（payment/refund/settlement 三类分录，实测） |
+
+## 5. 前端验收（§47）
+
+`NOT_IMPLEMENTED` — 财务页面属 Phase 9 Dashboard 范围。
+
+## 6. API 验收（§48）
+
+| 接口 | 状态 | 说明 |
+| --- | --- | --- |
+| `POST /finance/payments` | PASS | 201；幂等；金额非法 422 |
+| `GET /finance/payments` / `{id}` | PASS | 200；不存在 404 |
+| `POST /finance/refunds` | PASS | 201；超额 409；幂等 |
+| `GET /finance/refunds` | PASS | 200 |
+| `POST /finance/settlements` | PASS | 201（自动汇总费用与净额） |
+| `GET /finance/settlements` | PASS | 200 |
+| `POST /finance/reconciliations` | PASS | 201（matched / mismatched） |
+| `GET /finance/ledger` | PASS | 200 |
+| `POST /finance/webhooks/{provider}` | PASS | 验签失败 401；负载非法 422；重复 200+duplicate |
+
+鉴权：普通用户访问财务接口 → 403（实测）。
+
+## 7. 数据库验收（§49）
+
+| 项 | 状态 | 证据 |
+| --- | --- | --- |
+| Migration（增量） | PASS | `0002 → 0003_finance` 执行成功 |
+| Unique Constraint | PASS | `uq_payments_idempotency_key`、`uq_refunds_idempotency_key` |
+| Foreign Key | PASS | transactions/refunds/settlement_items → 父表 |
+| Index | PASS | order_ref / payment_id / settlement_id / reference |
+| Decimal 精度 | PASS | `docs/evidence/phase5/02_db_decimal_check.txt`（Numeric(18,4) 精确保存） |
+| Transaction 正确性 | PASS | 幂等冲突依赖唯一约束，重复请求返回既有记录 |
+| Rollback | PASS | `downgrade()` 逆序删除全部表 |
+
+## 8. Connector 验收（§40）
+
+`REAL_INTEGRATION: NOT_VERIFIED`（见 Phase 4）。支付侧目前为自建 Finance 领域 + Webhook 验签，未接真实支付网关。
+
+## 9. Finance 验收（§41）
+
+见第 4 节：全部必测项 PASS（汇率换算除外，标注 NOT_IMPLEMENTED）。
+
+## 10. AI / Agent 验收（§43、§44）
+
+`NOT_IMPLEMENTED` — Phase 6/7。
+
+## 11. RAG 验收（§45）
+
+`NOT_IMPLEMENTED` — Phase 8。
+
+## 12. Worker 验收（§46）
+
+本 Phase 未新增 Worker 任务；回归通过。
+
+## 13. Security 检查（§50）
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| Webhook 验签 | PASS | HMAC-SHA256 + `compare_digest`；非法签名 401 |
+| 密钥不入库/不入日志 | PASS | `PAYMENT_WEBHOOK_SECRET` 来自环境变量 |
+| 敏感 API 权限 | PASS | 财务接口需管理员（403 实测） |
+| 幂等防重放 | PASS | Webhook 事件 id 派生的幂等键 |
+
+## 14. Regression Test（§51）
+
+```text
+docs/evidence/phase5/03_pytest.txt: 56 passed
+```
+
+Phase 1–5 全部通过，无回归。
+
+## 15. E2E 验收（§52）
+
+```text
+登录 → 创建支付（幂等）→ 部分退款 → 重复退款（幂等）→ 超额退款被拒
+     → 补齐全额退款 → 累计退款额正确
+     → Webhook 验签失败被拒 / 成功处理 / 重复投递无二次副作用
+     → 结算（费用与净额）→ 对账 matched / mismatched
+     → 多币种（JPY）→ Ledger 可追溯 → 普通用户 403
+```
+
+## 16. 测试数量与结果
+
+| 类型 | 数量 | 结果 |
+| --- | --- | --- |
+| Unit / API Test（pytest） | 56 | PASS |
+| Acceptance（真实 PostgreSQL + HTTP，脚本） | 18 项 | PASS |
+
+## 17. 已知问题
+
+16. **汇率为 NOT_IMPLEMENTED** — 结算与利润目前按单币种处理，跨币种换算待 Phase 9 引入汇率表。
+17. **支付网关为自建记账** — 未接 Stripe/PayPal Sandbox；`Payment Connector` 接口（spec §11）尚未实现具体 Provider。
+18. **对账为手工触发** — 自动定时对账（Worker）待 Phase 10 补充。
+
+## 18. 未完成功能
+
+- Payment Connector（Stripe/PayPal Sandbox）
+- 汇率与多币种换算
+- 财务前端页面
+- 自动对账 Worker 任务
+
+## 19. Blocked 项
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| 真实支付网关验证 | BLOCKED | 需要 Stripe/PayPal Sandbox 账号与 API Key（外部资源） |
+
+```text
+Blocked Reason: 无支付 Sandbox 凭据
+Required External Resource: STRIPE_SECRET_KEY（或等价）
+Already Verified Parts: 记账、幂等、退款上限、验签、结算、对账、精度、审计
+Unverified Parts: 与真实支付网关的交互与回调
+How To Continue Verification: 配置 Sandbox 密钥后接入 Payment Connector 并重跑验收
+```
+
+## 20. 最终状态
+
+```text
+PASS
+```
+
+（真实支付网关项单独标注 BLOCKED，未计入 PASS。）

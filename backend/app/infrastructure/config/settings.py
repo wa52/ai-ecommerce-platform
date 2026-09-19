@@ -27,6 +27,8 @@ class Settings(BaseSettings):
 
     store_credential_key: str = ""
 
+    payment_webhook_secret: str = ""
+
     db_pool_size: int = 5
     db_max_overflow: int = 10
     db_echo: bool = False

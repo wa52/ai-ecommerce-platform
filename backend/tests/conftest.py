@@ -3,12 +3,12 @@ import os
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost:5432/test")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("STORE_CREDENTIAL_KEY", "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=")
+os.environ.setdefault("PAYMENT_WEBHOOK_SECRET", "test-webhook-secret")
 
 import pytest  # noqa: E402
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
 
-from app.infrastructure.database.base import Base  # noqa: E402
-from app.modules.store.repository import models as _store_models  # noqa: E402,F401
+from app.infrastructure.database.registry import Base  # noqa: E402
 
 
 @pytest.fixture

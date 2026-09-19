@@ -1,0 +1,21 @@
+﻿login: OK
+PASS payment created -> 201 | status=201
+PASS idempotent payment (4x same key -> 1 txn) | payment_id=468196b9-6bbc-4d0b-8fe2-b042c0c34ed0
+PASS decimal amount formatted by currency | amount=100.00
+PASS zero amount rejected -> 422 | status=422
+PASS partial refund -> 201 | status=201 30.00
+PASS duplicate refund is idempotent | created=False
+PASS over refund rejected -> 409 | status=409
+PASS full refund completes payment | status=201
+PASS refunded_amount tracks cumulative refunds | refunded=100.00
+PASS invalid webhook signature -> 401 | status=401
+PASS valid webhook processed | status=200
+PASS duplicate webhook no double effect | duplicate=True
+PASS settlement computed (gross/fees/net) | 1500.00/75.00/30.00/1395.00
+PASS reconciliation matched | matched
+PASS reconciliation mismatch detected | diff=-5.00
+PASS multi-currency payment (JPY 0 decimals) | amount=1000
+PASS ledger records payment/refund/settlement | types={'refund', 'settlement', 'payment'}
+PASS finance requires admin -> 403 | status=403
+
+RESULT: PASS
