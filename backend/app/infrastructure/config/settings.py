@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     llm_model: str = "deepseek-chat"
     llm_timeout: float = 30.0
     llm_max_retries: int = 2
+    embedding_provider: str = "hashing"
+    embedding_model: str = "text-embedding-3-small"
 
     db_pool_size: int = 5
     db_max_overflow: int = 10

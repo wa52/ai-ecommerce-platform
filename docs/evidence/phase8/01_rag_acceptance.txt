@@ -1,0 +1,24 @@
+﻿fake LLM listening on 0.0.0.0:9098
+login: OK
+PASS knowledge base created | status=201
+PASS document ingested: 退货政策 | status=201
+PASS document ingested: 物流时效 | status=201
+PASS document ingested: 支付与退款 | status=201
+PASS explicit hit retrieved | top=退货政策 score=0.4119
+PASS retrieval scores recorded (vector+keyword+fused) | v=0.3742 k=0.5 s=0.4119
+PASS chunk source recorded | source=handbook/returns.md
+PASS synonym expression retrieves refund doc | titles=['支付与退款']
+PASS multi-document retrieval | titles=['物流时效']
+PASS unrelated query returns no chunks | count=0 chunks=[]
+PASS refuses without evidence | grounded=False reason=no_context
+PASS no LLM call when no evidence | calls=0
+PASS grounded answer with contexts | contexts=1
+PASS answer cites context | answer=依据资料 [1]：[1] 退货政策（来源：handbook/returns.md）
+PASS contexts carry source for traceability | source=handbook/returns.md
+PASS follow-up question handled | status=200 grounded=True
+PASS agent selected rag.search tool | rag.search
+PASS rag tool returned real chunks | count=1
+PASS rag requires admin -> 403 | status=403
+
+REAL_MODEL_INTEGRATION: NOT_VERIFIED (sandbox LLM; retrieval runs on real pgvector)
+RESULT: PASS

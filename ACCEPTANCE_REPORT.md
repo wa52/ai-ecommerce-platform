@@ -13,7 +13,7 @@
 | Phase 5 | Finance | PASS | 见下方《Phase 5》 |
 | Phase 6 | 基础 AI（LLM Gateway / 文案 / 翻译） | PASS（REAL_MODEL_INTEGRATION: NOT_VERIFIED） | 见下方《Phase 6》 |
 | Phase 7 | Agent | PASS（REAL_MODEL_INTEGRATION: NOT_VERIFIED） | 见下方《Phase 7》 |
-| Phase 8 | RAG | NOT_IMPLEMENTED | — |
+| Phase 8 | RAG | PASS（REAL_MODEL_INTEGRATION: NOT_VERIFIED） | 见下方《Phase 8》 |
 | Phase 9 | Analytics | NOT_IMPLEMENTED | — |
 | Phase 10 | 工程化与最终验收 | NOT_IMPLEMENTED | — |
 
@@ -1211,3 +1211,166 @@ PASS
 ```
 
 （真实模型厂商项单独标注 BLOCKED，未计入 PASS。）
+
+---
+
+# Phase 8 — RAG（知识库 / 检索 / 引用式回答）
+
+> 状态：PASS（模型厂商为 Sandbox，`REAL_MODEL_INTEGRATION: NOT_VERIFIED`）。
+
+## 1. Build 信息
+
+| 项 | 值 |
+| --- | --- |
+| Phase | Phase 8 — RAG（spec §16、§45） |
+| 日期 | 2026-09-20 |
+| 方案 | 切块（段落聚合 + 重叠）→ 嵌入（`EmbeddingProvider`）→ 混合检索（向量 + 关键词 bigram）→ 融合重排 → 引用式回答；无证据必须拒答 |
+| 向量存储 | PostgreSQL + pgvector（`document_chunks.embedding vector(1536)`，实测列类型为 `vector`） |
+| 新增代码 | `modules/ai/rag/{models,embeddings,service,api}.py`、Agent 工具 `rag.search`、Alembic `0005_rag` |
+
+## 2. Git Commit SHA
+
+```text
+见提交：feat(rag): 知识库/文档/切块/混合检索 + Agent RAG Tool
+```
+
+## 3. 运行环境
+
+同 Phase 6；新增 `EMBEDDING_PROVIDER`（默认 `hashing`）、`EMBEDDING_MODEL`。
+
+## 4. 功能验收（§45）
+
+```text
+REAL_MODEL_INTEGRATION: NOT_VERIFIED（回答由沙箱 LLM 生成；检索运行在真实 pgvector 上）
+```
+
+固定测试集（3 篇文档 / 9 个语义段落）：
+
+| 用例 | 状态 | 证据（`docs/evidence/phase8/01_rag_acceptance.txt`） |
+| --- | --- | --- |
+| 明确命中 | PASS | "退货窗口多少天" → top=退货政策，score=0.4119（v=0.3742, k=0.5） |
+| 同义表达 | PASS | "钱多久能退回来" → 命中「支付与退款」 |
+| 多文档 | PASS | "物流 时效 关税" → 命中「物流时效」 |
+| 无相关文档 | PASS | "量子计算机的退相干时间" → count=0 |
+| 错误问题（拒答） | PASS | grounded=False，reason=no_context，且未调用模型 |
+| 上下文追问 | PASS | "那跨境订单呢" → 200 且有依据 |
+
+检索链路记录（spec §45 要求）：
+
+| 要求 | 状态 | 说明 |
+| --- | --- | --- |
+| 记录检索到哪些 Chunk | PASS | 响应含 `chunk_id` / `document_id` / `ordinal` / `content` |
+| Retrieval Score | PASS | 同时返回 `vector_score`、`keyword_score`、融合 `score` |
+| 最终使用哪些 Context | PASS | `answer.contexts` 明确列出 |
+| 是否有来源 | PASS | 每段带 `source`（如 `handbook/returns.md`） |
+| 无证据时拒绝编造 | PASS | 无命中时直接返回拒答，**不调用 LLM**（实测 LLM 调用增量为 0） |
+
+检索算法：`score = 0.7 × 向量相似 + 0.3 × 关键词重叠`；相关性门槛要求
+关键词重叠 ≥ 0.15（中文按 bigram 计）或向量相似 ≥ 0.5，避免词面噪声造成虚假命中。
+
+## 5. 前端验收（§47）
+
+`NOT_IMPLEMENTED` — 知识库 UI 属 Phase 9/10。
+
+## 6. API 验收（§48）
+
+| 接口 | 状态 | 说明 |
+| --- | --- | --- |
+| `POST /rag/knowledge-bases` | PASS | 201；slug 重复 409 |
+| `GET /rag/knowledge-bases` | PASS | 200 |
+| `POST /rag/knowledge-bases/{id}/documents` | PASS | 201（自动切块 + 嵌入） |
+| `POST /rag/knowledge-bases/{id}/search` | PASS | 200（chunks + 三类分数 + source） |
+| `POST /rag/knowledge-bases/{id}/answer` | PASS | 200（grounded + contexts）；不存在 KB 404 |
+
+鉴权：普通用户访问 → 403（实测）。
+
+## 7. 数据库验收（§49）
+
+| 项 | 状态 | 证据 |
+| --- | --- | --- |
+| Migration（增量） | PASS | `0004 → 0005_rag` |
+| pgvector 列类型 | PASS | `docs/evidence/phase8/02_pgvector_check.txt`：`embedding` 为 `vector` |
+| Foreign Key / Index | PASS | documents→knowledge_bases、chunks→documents、kb 索引 |
+| Rollback | PASS | `downgrade()` 逆序删除三张表 |
+
+## 8. Connector 验收（§40）
+
+`REAL_INTEGRATION: NOT_VERIFIED`（见 Phase 4）。
+
+## 9. Finance 验收（§41）
+
+Phase 5 通过；本 Phase 回归通过。
+
+## 10. AI / Agent 验收（§43、§44）
+
+RAG 作为 Agent 能力验证通过：`rag.search` 被 Agent 选中并返回真实 chunk（count=1）。
+
+## 11. RAG 验收（§45）
+
+见第 4 节：全部用例 PASS。
+
+## 12. Worker 验收（§46）
+
+`NOT_IMPLEMENTED` — 批量嵌入任务（RAG Embedding）尚未放入 Worker。
+
+## 13. Security 检查（§50）
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| 敏感 API 权限 | PASS | 知识库接口需管理员（403 实测） |
+| 无证据不编造 | PASS | 未命中时不调用模型（实测 LLM 调用增量为 0） |
+
+## 14. Regression Test（§51）
+
+```text
+docs/evidence/phase8/03_pytest.txt: 102 passed
+```
+
+Phase 1–8 全部通过，无回归。
+
+## 15. E2E 验收（§52）
+
+```text
+登录 → 建知识库 → 摄入 3 篇文档（切块 + 嵌入）
+  → 明确命中 / 同义表达 / 多文档 均正确召回，带分数与来源
+  → 无相关问题 → 0 命中 → 拒答且不调用模型
+  → 有证据问题 → 带引用回答 [1] + 来源
+  → 追问 → 正常回答
+  → Agent 通过 rag.search 使用知识库
+  → 普通用户 403
+```
+
+## 16. 测试数量与结果
+
+| 类型 | 数量 | 结果 |
+| --- | --- | --- |
+| Unit / API Test（pytest） | 102 | PASS |
+| Acceptance（真实 pgvector + Sandbox LLM，脚本） | 18 项 | PASS |
+
+## 17. 已知问题
+
+25. **默认嵌入为哈希（非语义）** — `EMBEDDING_PROVIDER=hashing` 仅做词面近似，真正的语义同义召回需要配置真实 embedding 服务（`LLM_BASE_URL` + `EMBEDDING_PROVIDER=openai_compatible`）；报告中的"同义表达"用例属词面不同的改写。
+26. **ANN 索引未创建** — 当前为逐块余弦计算；数据量增大后需建 pgvector ivfflat/hnsw 索引。
+27. **无重排模型（Rerank）** — 采用线性融合代替交叉编码器重排。
+
+## 18. 未完成功能
+
+- 知识库前端页面
+- 批量文档摄入 Worker 任务
+- pgvector ANN 索引与重排模型
+- 文档解析（PDF/Word）与去重
+
+## 19. Blocked 项
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| 真实语义检索质量验证 | BLOCKED | 需要真实 embedding 服务凭据 |
+| 真实模型厂商验证 | BLOCKED | 同 Phase 6 |
+
+## 20. 最终状态
+
+```text
+PASS
+```
+
+（真实 embedding / 模型厂商项单独标注 BLOCKED，未计入 PASS。）

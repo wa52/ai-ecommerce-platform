@@ -177,6 +177,60 @@ class SalesSummaryTool(_CommerceTool):
         )
 
 
+class RagSearchTool(Tool):
+    """Agent 的 RAG 能力（spec §16：RAG 只是 Agent 可调用的一种能力）。"""
+
+    name = "rag.search"
+    description = "在指定知识库中检索资料片段（返回片段、来源与分数）。"
+    requires_admin = True
+    parameters = {
+        "type": "object",
+        "properties": {
+            "knowledge_base_id": {"type": "string", "description": "知识库 ID"},
+            "query": {"type": "string", "description": "检索问题"},
+            "top_k": {"type": "integer", "minimum": 1, "maximum": 20, "default": 5},
+        },
+        "required": ["knowledge_base_id", "query"],
+    }
+
+    async def run(self, ctx: ToolContext, arguments: dict) -> ToolResult:
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+        from app.infrastructure.config.settings import get_settings
+        from app.modules.ai.rag.embeddings import build_embedding_provider
+        from app.modules.ai.rag.service import RagError, RagService
+
+        kb_id = arguments.get("knowledge_base_id")
+        query = arguments.get("query")
+        if not kb_id or not query:
+            return ToolResult(ok=False, error="缺少参数 knowledge_base_id 或 query")
+
+        session_factory = ctx.extra.get("session_factory")
+        engine = None
+        if session_factory is None:
+            engine = create_async_engine(str(get_settings().database_url))
+            session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+        try:
+            async with session_factory() as session:
+                service = RagService(session, build_embedding_provider(get_settings()))
+                chunks = await service.retrieve(
+                    kb_id=kb_id, query=query, top_k=int(arguments.get("top_k", 5))
+                )
+        except RagError as exc:
+            return ToolResult(ok=False, error=str(exc))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("rag tool failed: %s", type(exc).__name__)
+            return ToolResult(ok=False, error=f"知识库检索失败：{type(exc).__name__}")
+        finally:
+            if engine is not None:
+                await engine.dispose()
+
+        if not chunks:
+            return ToolResult(ok=True, data={"count": 0, "chunks": [], "note": "知识库中没有相关资料"})
+        return ToolResult(ok=True, data={"count": len(chunks), "chunks": [c.as_dict() for c in chunks]})
+
+
 class ToolFailureProbeTool(Tool):
     """用于验收工具失败路径（Phase 7 acceptance）。"""
 

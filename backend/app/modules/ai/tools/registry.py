@@ -35,6 +35,7 @@ def _load_builtin() -> None:
         "RecentOrdersTool",
         "FinanceSummaryTool",
         "SalesSummaryTool",
+        "RagSearchTool",
         "ToolFailureProbeTool",
         "AdminOnlyProbeTool",
     ):

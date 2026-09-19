@@ -194,6 +194,7 @@ def build_registry() -> AgentRegistry:
                 "commerce.recent_orders",
                 "finance.summary",
                 "analytics.sales_summary",
+                "rag.search",
             ],
         )
     )

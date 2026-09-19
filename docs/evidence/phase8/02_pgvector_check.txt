@@ -1,0 +1,15 @@
+﻿    column_name    |     data_type     | udt_name 
+-------------------+-------------------+----------
+ id                | character varying | varchar
+ document_id       | character varying | varchar
+ knowledge_base_id | character varying | varchar
+ ordinal           | integer           | int4
+ content           | text              | text
+ embedding         | USER-DEFINED      | vector
+(6 rows)
+
+ kbs | docs | chunks 
+-----+------+--------
+   4 |   12 |     12
+(1 row)
+
