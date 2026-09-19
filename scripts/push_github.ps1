@@ -42,5 +42,13 @@ if (-not $staged) {
 git -C $umbrellaRoot branch -D $SplitBranch 2>$null | Out-Null
 git -C $umbrellaRoot subtree split -P "$Prefix" -b $SplitBranch | Out-Null
 
-git -C $umbrellaRoot push --force-with-lease $RemoteUrl "${SplitBranch}:main"
+# subtree split is deterministic, so the new split branch is normally a
+# fast-forward of the previously pushed main. Try a normal push first and only
+# force when the remote has diverged (e.g. after a rewrite).
+git -C $umbrellaRoot push $RemoteUrl "${SplitBranch}:main"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "push rejected; retrying with --force-with-lease"
+    git -C $umbrellaRoot fetch $RemoteUrl main
+    git -C $umbrellaRoot push --force-with-lease $RemoteUrl "${SplitBranch}:main"
+}
 Write-Host "pushed to main"
