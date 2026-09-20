@@ -17,6 +17,10 @@
 | Phase 9 | Analytics | PASS | 见下方《Phase 9》 |
 | Phase 10 | 工程化（Tests/Security/Logging/Deployment） | PASS | 见下方《Phase 10》 |
 | Phase 11 | 消费者 Storefront（商品/购物车/结算/订单/账户） | PASS | 见下方《Phase 11》 |
+| Phase 12 | 商品发现与商品详情增强 | PASS_WITH_KNOWN_ISSUES | 见下方《Phase 12–15 增量验收》 |
+| Phase 13 | 用户中心与交易增强 | PASS_WITH_KNOWN_ISSUES | 见下方《Phase 12–15 增量验收》 |
+| Phase 14 | 订单、履约与售后 | PASS_WITH_KNOWN_ISSUES | 见下方《Phase 12–15 增量验收》 |
+| Phase 15 | 商家后台业务闭环 | PASS_WITH_KNOWN_ISSUES | 见下方《Phase 12–15 增量验收》 |
 
 > **PASS 语义说明**：下表及全文的 PASS 表示「该阶段可测试的内部实现已通过验收」，**不代表最终产品已完成**。
 > 真实第三方集成（Shopify / Stripe / 真实 LLM / 真实 Embedding）因缺少外部凭据统一标注
@@ -1830,6 +1834,40 @@ PASS
 
 ---
 
+# Phase 12–15 增量验收
+
+> 状态：PASS_WITH_KNOWN_ISSUES。日期：2026-09-20。证据：`docs/evidence/phase12-15/2026-09-20.md`。
+
+## 已完成并验证
+
+| 领域 | 实现 | 验证 |
+| --- | --- | --- |
+| 商品发现 | Saleor 分类、关键词搜索、价格排序、有货筛选、结果数量 | Saleor `category` / `media` GraphQL 查询返回正常；前端生产构建通过 |
+| 商品详情 | 图库降级、分类标签、Variant 选择、库存提示 | Next.js 路由构建通过 |
+| 用户中心 | Saleor 地址新增、编辑、删除、默认地址；订单状态筛选；收藏页 | `/account/addresses`、`/favorites` 返回 200；地址查询匿名返回 `me=null` |
+| 交易增强 | Checkout 优惠码、保存收货地址后进入支付页 | `checkoutAddPromoCode` schema 验证通过；结算链路沿用真实 Saleor |
+| 商家后台 | 分类、订单、库存、客户、AI Center 菜单和真实 API 列表 | `/openapi.json` 注册客户/分类/订单履约接口 |
+| 订单履约 | 取消订单、标记支付、创建发货单 | FastAPI 路由 + Saleor mutation；后端 pytest 123/123 |
+
+## 已知边界
+
+- 优惠券规则、满减和促销需要在 Saleor Dashboard 配置真实 Voucher/Promotion；前端已支持输入并调用 Saleor，未伪造优惠结果。
+- 物流追踪、退货换货、售后审核需要接入物流/售后业务数据，目前没有第三方凭据和独立售后模型，标记为 `BLOCKED/NOT_IMPLEMENTED`。
+- 收藏当前为浏览器本地持久化，尚未建立跨设备收藏数据模型。
+- AI Center 已接入 Agent 运行入口，但真实 LLM、Shopify、支付宝 Payment App 仍需外部凭据，不能标记为真实生产集成通过。
+
+## 回归结果
+
+```text
+backend pytest: 123 passed
+frontend tsc --noEmit: PASS
+frontend Docker build (webpack): PASS
+Storefront /, /account/addresses, /favorites: HTTP 200
+FastAPI /openapi.json: HTTP 200
+```
+
+---
+
 # 项目总结
 
 ## 交付范围
@@ -1847,6 +1885,10 @@ PASS
 | 9 | Analytics（统一指标口径 + Dashboard + 人工核对） | PASS |
 | 10 | 工程化（日志/安全/限流/重试/覆盖率/E2E） | PASS |
 | 11 | 消费者 Storefront（商品/购物车/结算/订单/账户） | PASS |
+| 12 | 商品发现与商品详情增强 | PASS_WITH_KNOWN_ISSUES |
+| 13 | 用户中心与交易增强 | PASS_WITH_KNOWN_ISSUES |
+| 14 | 订单、履约与售后 | PASS_WITH_KNOWN_ISSUES |
+| 15 | 商家后台业务闭环 | PASS_WITH_KNOWN_ISSUES |
 
 ## 产品级状态（对照“商家真正能开的电商网站”目标）
 
