@@ -147,6 +147,10 @@ powershell -File scripts\push_github.ps1 -Message "feat(xxx): ..."
 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | 是 | 对象存储 |
 | `STORE_CREDENTIAL_KEY` | 是 | 店铺凭据加密（Fernet，32 字节 urlsafe base64） |
 | `PAYMENT_WEBHOOK_SECRET` | 是 | 支付 Webhook HMAC 验签密钥 |
+| `PAYMENT_PROVIDER` | 否 | 支付渠道，当前为 `alipay` |
+| `ALIPAY_GATEWAY_URL` | 否 | 支付宝网关；沙箱为 `https://openapi.alipaydev.com/gateway.do` |
+| `ALIPAY_APP_ID` / `ALIPAY_PRIVATE_KEY` / `ALIPAY_PUBLIC_KEY` | 否 | 支付宝应用 ID、商户 RSA2 私钥、支付宝公钥 |
+| `ALIPAY_NOTIFY_URL` / `ALIPAY_RETURN_URL` | 否 | 支付宝异步通知和同步回跳地址，必须使用外网可访问的 HTTPS 地址 |
 | `LLM_PROVIDER` / `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL` | 否 | LLM Gateway（留空则未配置，AI 接口返回 503） |
 | `EMBEDDING_PROVIDER` / `EMBEDDING_MODEL` | 否 | 嵌入（默认 `hashing`，生产建议 `openai_compatible`） |
 | `SHOPIFY_SHOP_DOMAIN` / `SHOPIFY_ACCESS_TOKEN` / `SHOPIFY_API_SCHEME` | 否 | Shopify Connector（留空则 `REAL_INTEGRATION: NOT_VERIFIED`） |
@@ -158,6 +162,16 @@ powershell -File scripts\push_github.ps1 -Message "feat(xxx): ..."
 ```bash
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
+
+### 支付宝接入
+
+后端已实现支付宝 RSA2 电脑网站支付表单、异步通知验签、通知幂等入账和退款协议调用：
+
+- `POST /api/v1/finance/alipay/page-pay`：管理员生成支付宝支付表单
+- `POST /api/v1/finance/alipay/notify`：支付宝异步通知入口
+- 支付宝异步通知以 `TRADE_SUCCESS` / `TRADE_FINISHED` 为成功，仅以异步通知入账
+
+配置支付宝沙箱的应用 ID、商户私钥、公钥和公网回调地址后，才会启用真实支付宝请求。当前 Storefront 仍通过 Saleor 的支付网关完成 `checkoutPaymentCreate`；要让消费者结算页直接跳转支付宝，还需要在 Saleor 中配置对应的 Payment App，并将其 gateway 标识接入前端，不能仅靠修改前端字符串替代。
 
 ## 生产部署注意事项
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,6 +6,7 @@ from app.infrastructure.database.session import get_db
 from app.modules.finance.application.service import FinanceError, FinanceService
 from app.modules.finance.domain.money import as_str
 from app.modules.finance.domain.signature import WebhookSignatureError, verify_webhook_signature
+from app.modules.finance.alipay import AlipayError, AlipayNotConfigured, client_from_settings
 from app.modules.iam.api.deps import AdminUserDep
 
 router = APIRouter(prefix="/finance", tags=["finance"])
@@ -29,6 +30,19 @@ class PaymentResponse(BaseModel):
     status: str
     idempotency_key: str
     created: bool = True
+
+
+class AlipayPagePayCreate(BaseModel):
+    order_ref: str = Field(min_length=1, max_length=120)
+    subject: str = Field(min_length=1, max_length=256)
+    amount: str = Field(pattern=r"^\d+(\.\d{1,2})?$")
+    body: str = Field(default="", max_length=512)
+
+
+class AlipayPagePayResponse(BaseModel):
+    provider: str = "alipay"
+    order_ref: str
+    form_html: str
 
 
 class RefundCreate(BaseModel):
@@ -109,6 +123,54 @@ def _payment(payment, created: bool) -> PaymentResponse:
         idempotency_key=payment.idempotency_key,
         created=created,
     )
+
+
+@router.post("/alipay/page-pay", response_model=AlipayPagePayResponse)
+async def create_alipay_page_pay(req: AlipayPagePayCreate, _: AdminUserDep) -> AlipayPagePayResponse:
+    """生成支付宝电脑网站支付表单；真正支付结果以异步通知为准。"""
+    from decimal import Decimal
+    from app.infrastructure.config.settings import get_settings
+
+    try:
+        form_html = client_from_settings(get_settings()).build_page_pay_form(
+            out_trade_no=req.order_ref, subject=req.subject,
+            total_amount=Decimal(req.amount), body=req.body,
+        )
+    except AlipayNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except AlipayError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return AlipayPagePayResponse(order_ref=req.order_ref, form_html=form_html)
+
+
+@router.post("/alipay/notify", include_in_schema=False)
+async def alipay_notify(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
+    """支付宝异步通知：验签后幂等写入 Finance，返回 success 停止重试。"""
+    from decimal import Decimal
+    from urllib.parse import parse_qsl
+    from app.infrastructure.config.settings import get_settings
+
+    params = dict(parse_qsl((await request.body()).decode("utf-8"), keep_blank_values=True))
+    try:
+        client = client_from_settings(get_settings())
+        if not client.verify_notification(params):
+            raise HTTPException(status_code=401, detail="支付宝通知验签失败")
+        if params.get("trade_status") not in {"TRADE_SUCCESS", "TRADE_FINISHED"}:
+            return Response(content="success", media_type="text/plain")
+        order_ref, trade_no, amount = params.get("out_trade_no"), params.get("trade_no"), params.get("total_amount")
+        if not order_ref or not trade_no or not amount:
+            raise HTTPException(status_code=422, detail="支付宝通知缺少订单号、交易号或金额")
+        await FinanceService(db).create_payment(
+            order_ref=order_ref, provider="alipay", amount=str(Decimal(amount)), currency="CNY",
+            idempotency_key=f"alipay:{trade_no}", source="alipay_notify",
+        )
+    except AlipayNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except AlipayError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except FinanceError as exc:
+        raise _handle(exc) from exc
+    return Response(content="success", media_type="text/plain")
 
 
 @router.post("/payments", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)

@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     store_credential_key: str = ""
 
     payment_webhook_secret: str = ""
+    payment_provider: str = "alipay"
+    alipay_gateway_url: str = "https://openapi.alipaydev.com/gateway.do"
+    alipay_app_id: str = ""
+    alipay_private_key: str = ""
+    alipay_public_key: str = ""
+    alipay_notify_url: str = ""
+    alipay_return_url: str = ""
 
     llm_provider: str = "openai_compatible"
     llm_base_url: str = ""

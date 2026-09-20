@@ -158,6 +158,13 @@ services:
       SALEOR_API_URL: http://saleor-api:8000/graphql/
       STORE_CREDENTIAL_KEY: ${STORE_CREDENTIAL_KEY:?STORE_CREDENTIAL_KEY is required}
       PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:?PAYMENT_WEBHOOK_SECRET is required}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-alipay}
+      ALIPAY_GATEWAY_URL: ${ALIPAY_GATEWAY_URL:-https://openapi.alipaydev.com/gateway.do}
+      ALIPAY_APP_ID: ${ALIPAY_APP_ID:-}
+      ALIPAY_PRIVATE_KEY: ${ALIPAY_PRIVATE_KEY:-}
+      ALIPAY_PUBLIC_KEY: ${ALIPAY_PUBLIC_KEY:-}
+      ALIPAY_NOTIFY_URL: ${ALIPAY_NOTIFY_URL:-http://localhost:8001/api/v1/finance/alipay/notify}
+      ALIPAY_RETURN_URL: ${ALIPAY_RETURN_URL:-http://localhost:3000/payment/alipay/return}
       LLM_PROVIDER: ${LLM_PROVIDER:-openai_compatible}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
@@ -186,6 +193,13 @@ services:
       REDIS_URL: redis://cache:6379/0
       STORE_CREDENTIAL_KEY: ${STORE_CREDENTIAL_KEY:?STORE_CREDENTIAL_KEY is required}
       PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:?PAYMENT_WEBHOOK_SECRET is required}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-alipay}
+      ALIPAY_GATEWAY_URL: ${ALIPAY_GATEWAY_URL:-https://openapi.alipaydev.com/gateway.do}
+      ALIPAY_APP_ID: ${ALIPAY_APP_ID:-}
+      ALIPAY_PRIVATE_KEY: ${ALIPAY_PRIVATE_KEY:-}
+      ALIPAY_PUBLIC_KEY: ${ALIPAY_PUBLIC_KEY:-}
+      ALIPAY_NOTIFY_URL: ${ALIPAY_NOTIFY_URL:-http://localhost:8001/api/v1/finance/alipay/notify}
+      ALIPAY_RETURN_URL: ${ALIPAY_RETURN_URL:-http://localhost:3000/payment/alipay/return}
       LLM_PROVIDER: ${LLM_PROVIDER:-openai_compatible}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
