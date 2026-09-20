@@ -64,3 +64,13 @@ export const fetchFormulas = () => request<Record<string, string>>("/analytics/f
 export const fetchPayments = () => request<FinancePayment[]>("/finance/payments");
 export const fetchRefunds = () => request<FinanceRefund[]>("/finance/refunds");
 export const fetchSettlements = () => request<FinanceSettlement[]>("/finance/settlements");
+
+export const createRefund = (input: {
+  payment_id: string;
+  amount: string;
+  idempotency_key: string;
+  reason?: string;
+}) => request<FinanceRefund>("/finance/refunds", {
+  method: "POST",
+  body: JSON.stringify(input),
+});

@@ -8,6 +8,7 @@ from app.modules.commerce.domain.models import (
     StoreChannel,
     UnifiedOrder,
     UnifiedOrderItem,
+    UnifiedFulfillment,
     UnifiedProduct,
     UnifiedProductDetail,
     UnifiedProductVariant,
@@ -208,6 +209,7 @@ query Orders($first: Int!, $after: String, $channel: ID!) {
           variant { sku }
           unitPrice { gross { amount currency } }
         }
+        fulfillments { id status trackingNumber created }
       }
     }
   }
@@ -235,6 +237,7 @@ query OrdersAll($first: Int!, $after: String) {
           variant { sku }
           unitPrice { gross { amount currency } }
         }
+        fulfillments { id status trackingNumber created }
       }
     }
   }
@@ -258,6 +261,7 @@ query Order($id: ID!) {
       variant { sku }
       unitPrice { gross { amount currency } }
     }
+    fulfillments { id status trackingNumber created }
   }
 }
 """
@@ -616,6 +620,7 @@ class CommerceService:
             currency=currency,
             created_at=node.get("created") or "",
             items=items,
+            fulfillments=[UnifiedFulfillment(id=f["id"], status=f.get("status", ""), tracking_number=f.get("trackingNumber", ""), created_at=f.get("created", "")) for f in node.get("fulfillments", [])],
         )
 
     async def list_orders(self, *, channel: str | None, first: int, after: str | None) -> tuple[list[UnifiedOrder], Page]:

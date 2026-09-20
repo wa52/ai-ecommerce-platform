@@ -69,6 +69,12 @@ export default function OrderConfirmationPage() {
             合计：{order.total && typeof order.total.amount === "number" ? `${order.total.currency} ${order.total.amount.toFixed(2)}` : "-"}
           </Typography.Text>
         </div>
+        {order.fulfillments.length > 0 && <>
+          <Typography.Title level={4} style={{ marginTop: 24 }}>物流信息</Typography.Title>
+          {order.fulfillments.map((fulfillment) => <Card size="small" key={fulfillment.id} style={{ marginBottom: 8 }}>
+            <Tag color="processing">{fulfillment.status}</Tag> {fulfillment.trackingNumber || "待分配运单号"}
+          </Card>)}
+        </>}
         <Button style={{ marginTop: 24 }} type="primary" onClick={() => router.push("/account")}>
           我的订单
         </Button>

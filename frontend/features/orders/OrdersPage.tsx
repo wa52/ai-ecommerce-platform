@@ -22,6 +22,7 @@ export default function OrdersPage() {
       { title: "金额", render: (_, record) => `${record.total_amount} ${record.currency}` },
       { title: "商品数", render: (_, record) => record.items.reduce((sum, item) => sum + item.quantity, 0) },
       { title: "创建时间", dataIndex: "created_at" },
+      { title: "物流", render: (_, record) => record.fulfillments?.map((item) => item.tracking_number || item.status).join("、") || "未发货" },
       { title: "操作", render: (_, record) => <>
         {record.status !== "CANCELED" && <Popconfirm title="确认取消订单？" onConfirm={() => run(() => cancelOrder(record.id), "订单已取消")}><Button danger size="small">取消</Button></Popconfirm>}
         {record.payment_status !== "FULLY_CHARGED" && <Button size="small" style={{ marginLeft: 8 }} onClick={() => run(() => markOrderPaid(record.id), "已标记支付")}>标记支付</Button>}

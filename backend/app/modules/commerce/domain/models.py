@@ -59,6 +59,13 @@ class UnifiedOrderItem(BaseModel):
     currency: str
 
 
+class UnifiedFulfillment(BaseModel):
+    id: str
+    status: str
+    tracking_number: str = ""
+    created_at: str = ""
+
+
 class UnifiedOrder(BaseModel):
     id: str
     number: str
@@ -69,6 +76,7 @@ class UnifiedOrder(BaseModel):
     currency: str
     created_at: str
     items: list[UnifiedOrderItem] = Field(default_factory=list)
+    fulfillments: list[UnifiedFulfillment] = Field(default_factory=list)
 
 
 class UnifiedStock(BaseModel):

@@ -34,6 +34,7 @@ export interface Order {
   currency: string;
   created_at: string;
   items: OrderItem[];
+  fulfillments?: { id: string; status: string; tracking_number: string; created_at: string }[];
 }
 
 export interface ProductPage {

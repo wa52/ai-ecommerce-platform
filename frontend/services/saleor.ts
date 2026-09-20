@@ -109,6 +109,7 @@ export interface StorefrontOrder {
   created: string;
   total: Money | null;
   lines: { quantity: number; variantName: string; unitPrice: Money | null }[];
+  fulfillments: { id: string; status: string; trackingNumber: string; created: string }[];
 }
 
 export class SaleorError extends Error {}
@@ -455,6 +456,7 @@ mutation Complete($id: ID!) {
       id number token status paymentStatus created
       total { gross { amount currency } }
       lines { quantity variantName unitPrice { gross { amount currency } } }
+      fulfillments { id status trackingNumber created }
     }
     errors { field message code }
   }
@@ -703,6 +705,7 @@ fragment StoreOrder on Order {
   id number status paymentStatus created token
   total { gross { amount currency } }
   lines { quantity variantName unitPrice { gross { amount currency } } }
+  fulfillments { id status trackingNumber created }
 }
 `;
 
@@ -866,6 +869,7 @@ export function serializeOrder(node: Record<string, unknown>): StorefrontOrder {
       variantName: String(l.variantName),
       unitPrice: (l.unitPrice as { gross?: Money } | null)?.gross ?? null,
     })),
+    fulfillments: ((node.fulfillments as Record<string, unknown>[]) ?? []).map((f) => ({ id: String(f.id), status: String(f.status), trackingNumber: String(f.trackingNumber ?? ""), created: String(f.created ?? "") })),
   };
 }
 

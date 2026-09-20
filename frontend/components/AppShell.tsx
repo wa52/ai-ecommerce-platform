@@ -13,10 +13,11 @@ import InventoryPage from "@/features/inventory/InventoryPage";
 import AICenterPage from "@/features/ai-center/AICenterPage";
 import CustomersPage from "@/features/customers/CustomersPage";
 import CategoriesPage from "@/features/categories/CategoriesPage";
+import AfterSalesPage from "@/features/after-sales/AfterSalesPage";
 
 const { Header, Content, Sider } = Layout;
 
-type ViewKey = "system" | "products" | "categories" | "orders" | "inventory" | "customers" | "analytics" | "finance" | "ai" | "auth";
+type ViewKey = "system" | "products" | "categories" | "orders" | "inventory" | "customers" | "analytics" | "finance" | "after-sales" | "ai" | "auth";
 
 export default function AppShell() {
   const [view, setView] = useState<ViewKey>("auth");
@@ -53,6 +54,7 @@ export default function AppShell() {
               { key: "customers", label: "客户管理" },
               { key: "analytics", label: "数据分析" },
               { key: "finance", label: "财务" },
+              { key: "after-sales", label: "售后 / 退款" },
               { key: "ai", label: "AI Center" },
               { key: "auth", label: session ? "当前用户" : "登录" },
             ]}
@@ -93,6 +95,8 @@ export default function AppShell() {
             ) : (
               <Typography.Paragraph type="warning">请先使用商家账号登录后查看财务数据。</Typography.Paragraph>
             ))}
+          {view === "after-sales" &&
+            (isAdmin ? <AfterSalesPage /> : <Typography.Paragraph type="warning">请先使用商家账号登录后处理售后。</Typography.Paragraph>)}
           {view === "auth" &&
             (session ? (
               <SessionCard
