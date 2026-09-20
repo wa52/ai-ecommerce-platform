@@ -1,11 +1,12 @@
 "use client";
 
 import { SearchOutlined, ShoppingOutlined, UserOutlined } from "@ant-design/icons";
-import { Badge, Button, Form, Input, Layout, Menu, Modal, Tabs, message } from "antd";
+import { Badge, Button, Form, Input, Layout, Modal, Tabs, message } from "antd";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { checkoutRetrieve, customerLogin, customerRegister, getCustomerToken } from "@/services/saleor";
+import styles from "./StorefrontLayout.module.css";
 
 const { Header } = Layout;
 
@@ -76,43 +77,29 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
     }
   }
 
-  const items = [
-    { key: "/", label: <Link href="/">首页</Link> },
-    { key: "/#all-products", label: <Link href="/#all-products">全部商品</Link> },
-    { key: "/#hot", label: <Link href="/#hot">热销榜单</Link> },
-    { key: "/service", label: <Link href="/service">服务保障</Link> },
-    { key: "/cart", label: <Badge size="small" count={cartQty}><span><ShoppingOutlined /> 购物车</span></Badge> },
-  ];
-
   return (
-    <Layout style={{ minHeight: "100vh", background: "#fff" }}>
+    <Layout className={styles.layout}>
       {contextHolder}
-      <Header style={{ background: "#fff", borderBottom: "1px solid #edf0f5", height: 72, lineHeight: "72px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 20, maxWidth: 1440, margin: "0 auto", width: "100%" }}>
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 205, fontSize: 19, fontWeight: 750, color: "#17233f" }}>
-            <span style={{ display: "grid", placeItems: "center", width: 34, height: 34, borderRadius: 10, color: "#fff", background: "linear-gradient(135deg,#475cff,#7187ff)", fontSize: 20 }}>▣</span>
-            <span>AI 电商商城<small style={{ display: "block", marginTop: -19, color: "#8993a8", fontSize: 8, fontWeight: 400, letterSpacing: 1 }}>生活更美好 · AI 更懂你</small></span>
+      <Header className={styles.header}>
+        <div className={styles.headerInner}>
+          <Link href="/" className={styles.brand}>
+            <span className={styles.brandMark}>▣</span><span className={styles.brandText}>AI 电商商城<small>生活更美好 · AI 更懂你</small></span>
           </Link>
-          <Menu
-            mode="horizontal"
-            selectedKeys={[pathname]}
-            items={items}
-            style={{ flex: 1, borderBottom: "none", background: "transparent", minWidth: 360 }}
-            onClick={(e) => router.push(e.key.split("#")[0] || "/")}
-          />
-          <Input.Search value={headerSearch} onChange={(e) => setHeaderSearch(e.target.value)} onSearch={(value) => { window.dispatchEvent(new CustomEvent("sf-home-search", { detail: value })); router.push("/"); }} placeholder="搜索商品、品牌或关键词..." enterButton={<SearchOutlined />} style={{ width: 300 }} />
+          <nav className={styles.nav} aria-label="主导航">
+            <Link className={pathname === "/" ? styles.active : ""} href="/">首页</Link>
+            <Link href="/#all-products">全部商品</Link><Link href="/#hot">热销榜单</Link><Link href="/service">服务保障</Link>
+          </nav>
+          <div className={styles.search}><Input.Search value={headerSearch} onChange={(e) => setHeaderSearch(e.target.value)} onSearch={(value) => { window.dispatchEvent(new CustomEvent("sf-home-search", { detail: value })); router.push("/"); }} placeholder="搜索商品、品牌或关键词..." enterButton={<SearchOutlined />} /></div>
+          <button className={styles.language}>◎ 中文⌄</button>
           {logged ? (
-            <Button type="text" icon={<UserOutlined />} onClick={() => router.push("/account")}>
-              我的账户
-            </Button>
+            <button className={styles.account} onClick={() => router.push("/account")}><UserOutlined /><span>我的账户<small>账户中心</small></span></button>
           ) : (
-            <Button type="link" onClick={() => { setAuthMode("login"); setAuthOpen(true); }}>
-              登录 / 注册
-            </Button>
+            <button className={styles.account} onClick={() => { setAuthMode("login"); setAuthOpen(true); }}><UserOutlined /><span>我的账户<small>登录 / 注册</small></span></button>
           )}
+          <Link className={styles.cart} href="/cart"><Badge count={cartQty} size="small"><ShoppingOutlined /></Badge><span>购物车</span></Link>
         </div>
       </Header>
-      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "18px 24px 48px", width: "100%" }}>{children}</div>
+      <div className={styles.content}>{children}</div>
       <Modal
         open={authOpen}
         title={authMode === "login" ? "登录账户" : "创建账户"}
