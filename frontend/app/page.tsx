@@ -9,6 +9,10 @@ import { fetchProducts, getBookCoverFallback, type StorefrontProduct } from "@/s
 import styles from "./page.module.css";
 
 const categoryIcons = ["▣", "⌂", "✦", "♧", "⌁", "▤", "♡", "▥", "♧"];
+const catalogCategories = [
+  ["数码电子", "digital"], ["家居生活", "home"], ["服装鞋包", "fashion"], ["美妆个护", "beauty"],
+  ["运动户外", "sports"], ["食品饮料", "food"], ["母婴用品", "baby"], ["图书文创", "books"], ["宠物用品", "pets"],
+] as const;
 
 export default function StorefrontHome() {
   const [products, setProducts] = useState<StorefrontProduct[] | null>(null);
@@ -28,7 +32,8 @@ export default function StorefrontHome() {
   }, []);
 
   const categories = useMemo(() => [...new Map((products ?? []).filter((p) => p.category).map((p) => [p.category!.slug, p.category!])).values()], [products]);
-  const visibleProducts = useMemo(() => (products ?? []).filter((p) => category === "all" || p.category?.slug === category).filter((p) => !onlyAvailable || p.isAvailableForPurchase), [products, category, onlyAvailable]);
+  const knownCategorySlugs = new Set(categories.map((item) => item.slug));
+  const visibleProducts = useMemo(() => (products ?? []).filter((p) => category === "all" || !knownCategorySlugs.has(category) || p.category?.slug === category).filter((p) => !onlyAvailable || p.isAvailableForPurchase), [products, category, onlyAvailable, categories]);
   const recommendations = (products ?? []).slice(0, 3);
   const retry = () => { setProducts(null); load(); };
 
@@ -39,7 +44,7 @@ export default function StorefrontHome() {
         <aside className={styles.categoryPanel}>
           <PanelHeading title="商品分类" action="查看全部" onClick={() => setCategory("all")} />
           <div className={styles.categoryList}>
-            {(categories.length ? categories : [{ name: "数码电子", slug: "all" }, { name: "家居生活", slug: "home" }, { name: "图书文创", slug: "books" }]).map((item, index) => <button key={item.slug} className={category === item.slug ? styles.categoryActive : ""} onClick={() => setCategory(item.slug)}><span>{categoryIcons[index % categoryIcons.length]}</span>{item.name}</button>)}
+            {catalogCategories.map(([name, slug], index) => <button key={slug} className={category === slug ? styles.categoryActive : ""} onClick={() => setCategory(slug)}><span>{categoryIcons[index % categoryIcons.length]}</span>{name}</button>)}
             <button onClick={() => setCategory("all")}><span>⊞</span>更多分类</button>
           </div>
           <div className={styles.newcomer}><GiftFilled /><strong>新人专享</strong><span>注册即送 ¥50 优惠券</span><button onClick={() => window.dispatchEvent(new Event("sf-open-auth"))}>立即注册</button></div>
