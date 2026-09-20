@@ -1,10 +1,11 @@
 "use client";
 
-import { Card, Empty, Input, Result, Row, Skeleton, Typography } from "antd";
+import { Card, Empty, Input, Result, Skeleton, Typography } from "antd";
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import StorefrontLayout from "@/components/StorefrontLayout";
-import { fetchProducts, type StorefrontProduct } from "@/services/saleor";
+import { fetchProducts, getBookCoverFallback, type StorefrontProduct } from "@/services/saleor";
+import styles from "./page.module.css";
 
 export default function StorefrontHome() {
   const [products, setProducts] = useState<StorefrontProduct[] | null>(null);
@@ -13,6 +14,7 @@ export default function StorefrontHome() {
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
+    setError(null);
     fetchProducts({ first: 24 })
       .then((page) => setProducts(page.items))
       .catch((e) => setError(String(e)));
@@ -20,6 +22,7 @@ export default function StorefrontHome() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
+      setError(null);
       startTransition(() => {
         fetchProducts({ first: 24, search: search || null })
           .then((page) => setProducts(page.items))
@@ -29,30 +32,54 @@ export default function StorefrontHome() {
     return () => clearTimeout(timer);
   }, [search]);
 
+  const retry = () => {
+    setError(null);
+    setProducts(null);
+    fetchProducts({ first: 24, search: search || null })
+      .then((page) => setProducts(page.items))
+      .catch((e) => setError(String(e)));
+  };
+
   let content: React.ReactNode;
   if (error) {
-    content = <Result status="warning" title="加载失败" subTitle={error} />;
+    content = (
+      <Result
+        status="warning"
+        title="商品加载失败"
+        subTitle={error}
+        extra={<button onClick={retry} style={{ padding: "8px 18px", cursor: "pointer" }}>重新连接</button>}
+      />
+    );
   } else if (!products) {
     content = (
-      <Row gutter={[24, 24]}>
+      <div className={styles.productGrid}>
         {[0, 1, 2, 3].map((i) => (
-          <Card key={i} style={{ width: 240 }}>
+          <Card key={i} className={styles.productCard}>
             <Skeleton active paragraph={{ rows: 3 }} />
           </Card>
         ))}
-      </Row>
+      </div>
     );
   } else if (products.length === 0) {
     content = <Empty description="暂无上架商品" />;
   } else {
     content = (
-      <Row gutter={[24, 24]}>
+      <div className={styles.productGrid}>
         {products.map((p) => (
-          <Link key={p.id} href={`/product/${p.slug}`} style={{ width: 240 }}>
+          <Link key={p.id} href={`/product/${p.slug}`} className={styles.productLink}>
             <Card
               hoverable
-              style={{ width: 240 }}
-              cover={<div style={{ height: 170, background: "#fafafa", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 44 }}>🛍️</div>}
+              className={styles.productCard}
+              cover={<img
+                src={p.imageUrl ?? getBookCoverFallback(p.slug)}
+                alt={p.imageAlt ?? p.name}
+                className={styles.cover}
+                onError={(event) => {
+                  const fallback = getBookCoverFallback(p.slug);
+                  if (event.currentTarget.src.endsWith(fallback)) return;
+                  event.currentTarget.src = fallback;
+                }}
+              />}
             >
               <Card.Meta
                 title={p.name}
@@ -65,7 +92,7 @@ export default function StorefrontHome() {
             </Card>
           </Link>
         ))}
-      </Row>
+      </div>
     );
   }
 

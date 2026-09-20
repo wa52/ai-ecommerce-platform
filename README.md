@@ -46,6 +46,11 @@ docker compose exec ai-backend alembic upgrade head
 # 5. Storefront 前置初始化（幂等，可重复执行）：
 #    关闭注册邮箱确认 + 补齐商品 Listing 可见性
 powershell -File scripts\saleor_storefront_init.ps1
+
+# 6. 写入一批模拟商品（幂等：100 个商品、SKU、价格、库存、渠道发布）
+$env:SALEOR_ADMIN_EMAIL = "admin@example.com"
+$env:SALEOR_ADMIN_PASSWORD = "<your-password>"
+python backend/scripts/saleor_demo_products.py
 ```
 
 > `saleor` 与 `ai_platform` 数据库由 `db/init/create-databases.sh` 在数据库卷首次初始化时自动创建。
@@ -53,14 +58,15 @@ powershell -File scripts\saleor_storefront_init.ps1
 > `docker compose exec db psql -U <POSTGRES_USER> -d postgres -c "CREATE DATABASE saleor"`（`ai_platform` 同理）。
 >
 > 若 Saleor 中尚无商品，可在 `http://localhost:9000`（Saleor 商家后台）创建并发布商品，或运行
-> `backend/scripts/saleor_bootstrap.py` 引导默认商品类型后经 AI 扩展层 API 创建商品。
+> `backend/scripts/saleor_bootstrap.py` 引导默认商品类型，再运行
+> `backend/scripts/saleor_demo_products.py` 创建一批可直接用于 Storefront 演示的商品。
 
 运行后访问：
 
 | 服务 | 地址 |
 | --- | --- |
 | 消费者 Storefront（商城） | http://localhost:3000 |
-| 商家管理后台 | http://localhost:3000/admin |
+| 商家管理后台 | http://localhost:3002/admin |
 | AI 扩展层 Health API | http://localhost:8001/api/v1/health |
 | Saleor GraphQL | http://localhost:8000/graphql/ |
 | Saleor 商家后台 | http://localhost:9000 |
@@ -91,7 +97,7 @@ npm run build          # 生产构建
 ## 架构
 
 ```text
-Next.js Storefront / Admin (3000)
+Next.js Storefront (3000) / Admin (3002)
         │                    │
         │(NEXT_PUBLIC_SALEOR_API_URL)  (NEXT_PUBLIC_AI_API_URL)
         ▼                    ▼
@@ -156,7 +162,7 @@ powershell -File scripts\push_github.ps1 -Message "feat(xxx): ..."
 | `EMBEDDING_PROVIDER` / `EMBEDDING_MODEL` | 否 | 嵌入（默认 `hashing`，生产建议 `openai_compatible`） |
 | `SHOPIFY_SHOP_DOMAIN` / `SHOPIFY_ACCESS_TOKEN` / `SHOPIFY_API_SCHEME` | 否 | Shopify Connector（留空则 `REAL_INTEGRATION: NOT_VERIFIED`） |
 | `LOG_LEVEL` | 否 | 日志级别（默认 dev=DEBUG，其他=INFO） |
-| `CORS_ORIGINS` | 否 | 允许的前端来源（JSON 数组） |
+| `CORS_ORIGINS` | 否 | 允许的前端来源（JSON 数组，默认包含 Storefront 3000 和 Admin 3002 的 localhost/127.0.0.1） |
 
 生成 Fernet 密钥：
 

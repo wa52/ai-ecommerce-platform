@@ -1,11 +1,11 @@
 "use client";
 
 import { ShoppingOutlined, UserOutlined } from "@ant-design/icons";
-import { Badge, Layout, Menu } from "antd";
+import { Badge, Button, Form, Input, Layout, Menu, Modal, Tabs, message } from "antd";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { checkoutRetrieve, getCustomerToken } from "@/services/saleor";
+import { checkoutRetrieve, customerLogin, customerRegister, getCustomerToken } from "@/services/saleor";
 
 const { Header } = Layout;
 
@@ -14,6 +14,10 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
   const router = useRouter();
   const [cartQty, setCartQty] = useState(0);
   const [logged, setLogged] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [messageApi, contextHolder] = message.useMessage();
 
   useEffect(() => {
     let alive = true;
@@ -34,21 +38,51 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
     };
   }, [pathname]);
 
+  useEffect(() => {
+    const openAuth = () => {
+      setAuthMode("login");
+      setAuthOpen(true);
+    };
+    window.addEventListener("sf-open-auth", openAuth);
+    return () => window.removeEventListener("sf-open-auth", openAuth);
+  }, []);
+
+  async function handleLogin(values: { email: string; password: string }) {
+    setAuthBusy(true);
+    try {
+      await customerLogin(values.email, values.password);
+      setLogged(true);
+      setAuthOpen(false);
+      messageApi.success("登录成功");
+      router.refresh();
+    } catch (error) {
+      messageApi.error(String(error));
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function handleRegister(values: { email: string; password: string }) {
+    setAuthBusy(true);
+    try {
+      await customerRegister(values.email, values.password);
+      messageApi.success("注册成功，请登录");
+      setAuthMode("login");
+    } catch (error) {
+      messageApi.error(String(error));
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
   const items = [
     { key: "/", label: <Link href="/">首页</Link> },
     { key: "/cart", label: <Badge size="small" count={cartQty}><span><ShoppingOutlined /> 购物车</span></Badge> },
-    {
-      key: "/account",
-      label: (
-        <span>
-          <UserOutlined /> {logged ? "我的账户" : "登录 / 注册"}
-        </span>
-      ),
-    },
   ];
 
   return (
     <Layout style={{ minHeight: "100vh", background: "#fff" }}>
+      {contextHolder}
       <Header style={{ background: "#fff", borderBottom: "1px solid #f0f0f0" }}>
         <div style={{ display: "flex", alignItems: "center", maxWidth: 1080, margin: "0 auto", width: "100%" }}>
           <Link href="/" style={{ fontSize: 18, fontWeight: 600, color: "#111", marginRight: 40 }}>
@@ -61,12 +95,63 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
             style={{ flex: 1, borderBottom: "none", background: "transparent", minWidth: 320 }}
             onClick={(e) => router.push(e.key)}
           />
-          <Link href="/admin" style={{ color: "#999", fontSize: 13, marginLeft: 24 }}>
-            商家后台
-          </Link>
+          {logged ? (
+            <Button type="text" icon={<UserOutlined />} onClick={() => router.push("/account")}>
+              我的账户
+            </Button>
+          ) : (
+            <Button type="link" onClick={() => { setAuthMode("login"); setAuthOpen(true); }}>
+              登录 / 注册
+            </Button>
+          )}
         </div>
       </Header>
       <div style={{ maxWidth: 1080, margin: "0 auto", padding: "24px 16px 48px", width: "100%" }}>{children}</div>
+      <Modal
+        open={authOpen}
+        title={authMode === "login" ? "登录账户" : "创建账户"}
+        footer={null}
+        centered
+        destroyOnClose
+        onCancel={() => setAuthOpen(false)}
+      >
+        <Tabs
+          activeKey={authMode}
+          onChange={(key) => setAuthMode(key as "login" | "register")}
+          items={[
+            {
+              key: "login",
+              label: "登录",
+              children: (
+                <Form layout="vertical" onFinish={handleLogin} preserve={false}>
+                  <Form.Item name="email" label="邮箱" rules={[{ required: true, type: "email", message: "请输入有效邮箱" }]}>
+                    <Input placeholder="name@example.com" size="large" />
+                  </Form.Item>
+                  <Form.Item name="password" label="密码" rules={[{ required: true, message: "请输入密码" }]}>
+                    <Input.Password size="large" />
+                  </Form.Item>
+                  <Button type="primary" htmlType="submit" loading={authBusy} block size="large">登录</Button>
+                </Form>
+              ),
+            },
+            {
+              key: "register",
+              label: "注册",
+              children: (
+                <Form layout="vertical" onFinish={handleRegister} preserve={false}>
+                  <Form.Item name="email" label="邮箱" rules={[{ required: true, type: "email", message: "请输入有效邮箱" }]}>
+                    <Input placeholder="name@example.com" size="large" />
+                  </Form.Item>
+                  <Form.Item name="password" label="密码" rules={[{ required: true, min: 8, message: "密码至少 8 位" }]}>
+                    <Input.Password size="large" />
+                  </Form.Item>
+                  <Button type="primary" htmlType="submit" loading={authBusy} block size="large">创建账户</Button>
+                </Form>
+              ),
+            },
+          ]}
+        />
+      </Modal>
     </Layout>
   );
 }

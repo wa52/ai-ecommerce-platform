@@ -51,7 +51,14 @@ class Settings(BaseSettings):
     db_max_overflow: int = 10
     db_echo: bool = False
 
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    cors_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:3002",
+            "http://127.0.0.1:3002",
+        ]
+    )
 
     worker_queue: str = "tasks:default"
     worker_result_ttl: int = 3600

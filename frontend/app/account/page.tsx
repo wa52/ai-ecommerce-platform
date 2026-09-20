@@ -1,14 +1,12 @@
 "use client";
 
-import { Button, Card, Empty, Form, Input, message, Tag, Typography } from "antd";
+import { Button, Card, Empty, Tag, Typography } from "antd";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import StorefrontLayout from "@/components/StorefrontLayout";
 import {
   clearCustomerSession,
-  customerLogin,
-  customerRegister,
   fetchMyOrders,
   type StorefrontOrder,
 } from "@/services/saleor";
@@ -18,8 +16,6 @@ export default function AccountPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [orders, setOrders] = useState<StorefrontOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [messageApi, contextHolder] = message.useMessage();
 
   const refresh = useCallback(
     (opts?: { silent?: boolean }) => {
@@ -38,31 +34,6 @@ export default function AccountPage() {
     refresh();
   }, [refresh]);
 
-  async function doLogin(values: { email: string; password: string }) {
-    setBusy(true);
-    try {
-      await customerLogin(values.email, values.password);
-      await refresh({ silent: true });
-      messageApi.success("登录成功");
-    } catch (e) {
-      messageApi.error(String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function doRegister(values: { email: string; password: string }) {
-    setBusy(true);
-    try {
-      await customerRegister(values.email, values.password);
-      messageApi.success("注册成功，请登录");
-    } catch (e) {
-      messageApi.error(String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   if (loading) {
     return (
       <StorefrontLayout>
@@ -76,42 +47,19 @@ export default function AccountPage() {
   if (!email) {
     return (
       <StorefrontLayout>
-        {contextHolder}
-        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-          <Card title="登录" style={{ flex: 1, minWidth: 340 }}>
-            <Form layout="vertical" onFinish={doLogin}>
-              <Form.Item name="email" label="邮箱" rules={[{ required: true, type: "email" }]}>
-                <Input />
-              </Form.Item>
-              <Form.Item name="password" label="密码" rules={[{ required: true }]}>
-                <Input.Password />
-              </Form.Item>
-              <Button type="primary" htmlType="submit" loading={busy} block>
-                登录
-              </Button>
-            </Form>
-          </Card>
-          <Card title="注册" style={{ flex: 1, minWidth: 340 }}>
-            <Form layout="vertical" onFinish={doRegister}>
-              <Form.Item name="email" label="邮箱" rules={[{ required: true, type: "email" }]}>
-                <Input />
-              </Form.Item>
-              <Form.Item name="password" label="密码（8 位以上，含大小写数字）" rules={[{ required: true, min: 8 }]}>
-                <Input.Password />
-              </Form.Item>
-              <Button htmlType="submit" loading={busy} block>
-                创建账户
-              </Button>
-            </Form>
-          </Card>
-        </div>
+        <Card style={{ maxWidth: 560, margin: "40px auto", textAlign: "center" }}>
+          <Empty description="登录后查看订单和账户信息">
+            <Button type="primary" onClick={() => window.dispatchEvent(new Event("sf-open-auth"))}>
+              登录 / 注册
+            </Button>
+          </Empty>
+        </Card>
       </StorefrontLayout>
     );
   }
 
   return (
     <StorefrontLayout>
-      {contextHolder}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Typography.Title level={3} style={{ margin: 0 }}>
           我的账户

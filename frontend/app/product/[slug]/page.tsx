@@ -4,7 +4,7 @@ import { Button, Card, InputNumber, message, Result, Skeleton, Typography } from
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import StorefrontLayout from "@/components/StorefrontLayout";
-import { checkoutLinesAdd, fetchProductBySlug, type StorefrontProduct } from "@/services/saleor";
+import { checkoutLinesAdd, fetchProductBySlug, getBookCoverFallback, type StorefrontProduct } from "@/services/saleor";
 
 function parseDescriptionText(raw: string | null): string {
   if (!raw) return "";
@@ -84,19 +84,16 @@ export default function ProductDetailPage() {
       {contextHolder}
       <Card>
         <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
-          <div
-            style={{
-              width: 320,
-              height: 320,
-              background: "#fafafa",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 96,
+          <img
+            src={product.imageUrl ?? getBookCoverFallback(product.slug)}
+            alt={product.imageAlt ?? product.name}
+            style={{ width: 320, height: 400, objectFit: "cover", borderRadius: 8 }}
+            onError={(event) => {
+              const fallback = getBookCoverFallback(product.slug);
+              if (event.currentTarget.src.endsWith(fallback)) return;
+              event.currentTarget.src = fallback;
             }}
-          >
-            🛍️
-          </div>
+          />
           <div style={{ flex: 1, minWidth: 320 }}>
             <Typography.Title level={3} style={{ marginTop: 0 }}>
               {product.name}

@@ -14,7 +14,7 @@ const { Header, Content, Sider } = Layout;
 type ViewKey = "system" | "products" | "analytics" | "finance" | "auth";
 
 export default function AppShell() {
-  const [view, setView] = useState<ViewKey>("system");
+  const [view, setView] = useState<ViewKey>("auth");
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
@@ -23,6 +23,8 @@ export default function AppShell() {
       .then((me) => setSession({ email: me.email, is_staff: me.is_staff }))
       .catch(() => setToken(null));
   }, []);
+
+  const isAdmin = session?.is_staff === true;
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
@@ -47,24 +49,29 @@ export default function AppShell() {
           />
         </Sider>
         <Content style={{ padding: 16 }}>
-          {view === "system" && <SystemStatusPanel />}
+          {view === "system" &&
+            (isAdmin ? (
+              <SystemStatusPanel />
+            ) : (
+              <Typography.Paragraph type="warning">请先使用商家账号登录后查看系统状态。</Typography.Paragraph>
+            ))}
           {view === "products" &&
-            (session ? (
+            (isAdmin ? (
               <ProductsPage />
             ) : (
-              <Typography.Paragraph type="warning">请先在「登录」页登录后再管理商品。</Typography.Paragraph>
+              <Typography.Paragraph type="warning">请先使用商家账号登录后再管理商品。</Typography.Paragraph>
             ))}
           {view === "analytics" &&
-            (session ? (
+            (isAdmin ? (
               <AnalyticsDashboard />
             ) : (
-              <Typography.Paragraph type="warning">请先登录后查看数据分析。</Typography.Paragraph>
+              <Typography.Paragraph type="warning">请先使用商家账号登录后查看数据分析。</Typography.Paragraph>
             ))}
           {view === "finance" &&
-            (session ? (
+            (isAdmin ? (
               <FinancePage />
             ) : (
-              <Typography.Paragraph type="warning">请先登录后查看财务数据。</Typography.Paragraph>
+              <Typography.Paragraph type="warning">请先使用商家账号登录后查看财务数据。</Typography.Paragraph>
             ))}
           {view === "auth" &&
             (session ? (

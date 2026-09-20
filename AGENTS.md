@@ -31,7 +31,7 @@ cd backend; .venv\Scripts\python -m pytest
 # 前端 typecheck + 构建（Windows 上 Turbopack 原生绑定坏，build 必须用 --webpack，package.json 已固化）
 cd frontend; npx tsc --noEmit; npm run build
 # 前端容器重建（改前端后必须 --build 否则镜像不更新；`docker compose up -d` 单独跑不会重建）
-docker compose up -d --build frontend
+docker compose up -d --build storefront admin
 # AI 层迁移
 docker compose exec ai-backend alembic upgrade head
 # Storefront 前置初始化（幂等）：关注册邮箱确认 + 补商品 Listing 可见性

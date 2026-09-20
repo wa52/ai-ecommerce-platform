@@ -34,6 +34,8 @@ export interface StorefrontProduct {
   price: Money | null;
   isAvailableForPurchase: boolean;
   variants: StorefrontVariant[];
+  imageUrl: string | null;
+  imageAlt: string | null;
 }
 
 export interface StorefrontProductPage {
@@ -41,6 +43,23 @@ export interface StorefrontProductPage {
   totalCount: number;
   hasNextPage: boolean;
   endCursor: string | null;
+}
+
+export function getBookCoverFallback(slug: string): string {
+  const covers: [string, string][] = [
+    ["huo-zhe", "alive.png"],
+    ["bai-nian-gu-du", "bai-nian-gu-du.png"],
+    ["ren-lei-jian-shi", "alive.png"],
+    ["yuan-ze", "principles.png"],
+    ["xiao-wang-zi", "little-prince.png"],
+    ["jie-you-za-huo-dian", "worry-shop.png"],
+    ["zhi-shen-shi-nei", "inside-economy.png"],
+    ["na-wa-er-bao-dian", "naval.png"],
+    ["bei-tao-yan-de-yong-qi", "courage.png"],
+    ["yun-bian-you-ge-xiao-mai-bu", "cloud-town.png"],
+  ];
+  const match = covers.find(([key]) => slug.includes(key));
+  return `/book-covers/${match?.[1] ?? "alive.png"}`;
 }
 
 export interface CheckoutLine {
@@ -74,6 +93,8 @@ export interface StorefrontOrder {
 
 export class SaleorError extends Error {}
 
+const SALEOR_REQUEST_TIMEOUT_MS = 8_000;
+
 interface GqlPayload {
   data?: Record<string, unknown>;
   errors?: { message: string | null }[];
@@ -86,22 +107,51 @@ export async function saleorFetch<T>(
 ): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
-  const resp = await fetch(SALEOR_API_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ query, variables }),
-    cache: "no-store",
-  });
-  const body = (await resp.json()) as GqlPayload;
-  const firstError = body.errors?.[0]?.message;
-  if (firstError) throw new SaleorError(firstError);
-  if (!body.data) throw new SaleorError("Saleor 返回空数据");
-  return body.data as T;
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), SALEOR_REQUEST_TIMEOUT_MS);
+  try {
+    const resp = await fetch(SALEOR_API_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query, variables }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!resp.ok) throw new SaleorError(`Saleor 请求失败（HTTP ${resp.status}）`);
+    const body = (await resp.json()) as GqlPayload;
+    const firstError = body.errors?.[0]?.message;
+    if (firstError) throw new SaleorError(firstError);
+    if (!body.data) throw new SaleorError("Saleor 返回空数据");
+    return body.data as T;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new SaleorError("Saleor 服务响应超时，请确认 Docker 与 Saleor API 已启动");
+    }
+    if (error instanceof TypeError) {
+      throw new SaleorError("无法连接 Saleor，请确认 Docker 与 Saleor API 已启动");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 function errText(errors: { field: string | null; message: string | null }[] | null | undefined) {
   if (!errors || errors.length === 0) return null;
   return errors.map((e) => (e.field ? `${e.field}: ${e.message ?? ""}` : e.message ?? "")).join("; ");
+}
+
+function normalizeMediaUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+      return `${parsed.pathname}${parsed.search}`;
+    }
+  } catch {
+    // Saleor may return a relative URL already.
+  }
+  return raw;
 }
 
 // Saleor 的金额字段是 TaxedMoney 形状 { gross: { amount, currency } }，这里归一化为 { amount, currency }。
@@ -142,6 +192,7 @@ query StorefrontProducts($first: Int!, $after: String, $search: String) {
       node {
         id name slug isAvailableForPurchase
         description
+        media { url alt }
         pricing { priceRange { start { gross { amount currency } } } }
         variants { id name sku quantityAvailable }
       }
@@ -174,6 +225,7 @@ export async function fetchProducts(params: {
       slug: string;
       isAvailableForPurchase: boolean;
       description: string | null;
+      media?: { url: string; alt: string | null }[];
       pricing?: { priceRange?: { start?: { gross?: Money } } } | null;
       variants: { id: string; name: string; sku: string | null; quantityAvailable: number | null }[];
     };
@@ -185,6 +237,8 @@ export async function fetchProducts(params: {
       price: n.pricing?.priceRange?.start?.gross ?? null,
       isAvailableForPurchase: n.isAvailableForPurchase,
       variants: n.variants.map((v) => ({ ...v, price: null })),
+      imageUrl: normalizeMediaUrl(n.media?.[0]?.url),
+      imageAlt: n.media?.[0]?.alt ?? null,
     };
     return product;
   });
@@ -201,6 +255,7 @@ query StorefrontProduct($slug: String!) {
   product(slug: $slug, channel: "default-channel") {
     id name slug isAvailableForPurchase
     description
+    media { url alt }
     pricing { priceRange { start { gross { amount currency } } } }
     variants {
       id name sku quantityAvailable
@@ -218,6 +273,7 @@ export async function fetchProductBySlug(slug: string): Promise<StorefrontProduc
     slug: string;
     isAvailableForPurchase: boolean;
     description: string | null;
+    media?: { url: string; alt: string | null }[];
     pricing?: { priceRange?: { start?: { gross?: Money } } } | null;
     variants: {
       id: string;
@@ -242,6 +298,8 @@ export async function fetchProductBySlug(slug: string): Promise<StorefrontProduc
       quantityAvailable: v.quantityAvailable,
       price: v.pricing?.price?.gross ?? null,
     })),
+    imageUrl: normalizeMediaUrl(n.media?.[0]?.url),
+    imageAlt: n.media?.[0]?.alt ?? null,
   };
 }
 

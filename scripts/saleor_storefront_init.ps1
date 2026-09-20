@@ -1,6 +1,7 @@
 ﻿# Storefront 一次性初始化（幂等）：商用前置设置
 # 1) 关闭注册邮箱确认（沙箱环境没有真实 SMTP，Mailpit 仅本地收信）
 # 2) 确保所有已发布商品在渠道 Listing 中可见（visibleInListings=True）
+# 3) 模拟商品由 backend/scripts/saleor_demo_products.py 单独执行，避免脚本隐式创建商品
 #
 # 用法: powershell -File scripts\saleor_storefront_init.ps1
 # 前置: docker compose 栈已启动
