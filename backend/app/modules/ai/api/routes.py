@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +12,7 @@ from app.modules.ai.llm.gateway import LLMGateway, build_gateway
 from app.modules.ai.llm.usage import UsageRepository
 from app.modules.iam.api.deps import AdminUserDep
 from app.infrastructure.config.settings import get_settings
+from app.infrastructure.http.ratelimit import RateLimiter
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -45,6 +46,28 @@ class ChatRequest(BaseModel):
     system: str | None = Field(default=None, max_length=2000)
     provider: str | None = None
     model: str | None = None
+
+
+class GuestChatRequest(BaseModel):
+    prompt: str = Field(min_length=1, max_length=1000)
+
+
+@router.post("/guest-chat")
+async def guest_chat(req: GuestChatRequest, request: Request, gateway: GatewayDep) -> dict:
+    """消费者侧导购入口：只做通用对话，不暴露管理员工具。"""
+    client_key = request.client.host if request.client else "unknown"
+    allowed, _ = await RateLimiter(limit=20, window_seconds=60, prefix="guest-chat").check(client_key)
+    if not allowed:
+        raise HTTPException(status_code=429, detail="对话请求过于频繁，请稍后再试")
+    messages = [
+        LLMMessage("system", "你是 AI 电商商城的消费者导购。只回答商品选择、配送、支付和售后等商城问题；不了解的内容请明确说不知道，不要编造库存、价格或订单状态。回答简洁、友好，使用中文。"),
+        LLMMessage("user", req.prompt),
+    ]
+    try:
+        response = await gateway.complete(messages, max_tokens=700)
+    except LLMError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return {"answer": response.content, "provider": response.provider, "model": response.model}
 
 
 @router.get("/providers")

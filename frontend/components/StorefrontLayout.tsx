@@ -1,11 +1,12 @@
 "use client";
 
-import { SearchOutlined, ShoppingOutlined, UserOutlined } from "@ant-design/icons";
-import { Badge, Button, Form, Input, Layout, Modal, Tabs, message } from "antd";
+import { CustomerServiceOutlined, SearchOutlined, SendOutlined, ShoppingOutlined, UserOutlined } from "@ant-design/icons";
+import { Avatar, Badge, Button, Drawer, Form, Input, Layout, Modal, Tabs, message } from "antd";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { checkoutRetrieve, customerLogin, customerRegister, getCustomerToken } from "@/services/saleor";
+import { request } from "@/services/api";
 import styles from "./StorefrontLayout.module.css";
 
 const { Header } = Layout;
@@ -19,6 +20,12 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authBusy, setAuthBusy] = useState(false);
   const [headerSearch, setHeaderSearch] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMessages, setAiMessages] = useState<{ role: "assistant" | "user"; content: string }[]>([
+    { role: "assistant", content: "你好，我是 AI 导购。可以帮你挑选商品、了解配送和售后。" },
+  ]);
   const [messageApi, contextHolder] = message.useMessage();
 
   useEffect(() => {
@@ -77,6 +84,20 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
     }
   }
 
+  async function askAI() {
+    const prompt = aiPrompt.trim();
+    if (!prompt || aiBusy) return;
+    setAiPrompt("");
+    setAiMessages((items) => [...items, { role: "user", content: prompt }]);
+    setAiBusy(true);
+    try {
+      const result = await request<{ answer: string }>("/ai/guest-chat", { method: "POST", body: JSON.stringify({ prompt }) });
+      setAiMessages((items) => [...items, { role: "assistant", content: result.answer }]);
+    } catch (error) {
+      setAiMessages((items) => [...items, { role: "assistant", content: `暂时无法连接 AI 导购：${String(error)}` }]);
+    } finally { setAiBusy(false); }
+  }
+
   return (
     <Layout className={styles.layout}>
       {contextHolder}
@@ -100,6 +121,10 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
         </div>
       </Header>
       <div className={styles.content}>{children}</div>
+      <button className={styles.aiLauncher} onClick={() => setAiOpen(true)} aria-label="打开 AI 导购"><CustomerServiceOutlined /><span>AI 导购</span></button>
+      <Drawer title="AI 导购" open={aiOpen} onClose={() => setAiOpen(false)} width={380} styles={{ body: { padding: 0 } }}>
+        <div className={styles.aiChat}><div className={styles.aiChatIntro}><Avatar size={42} style={{ background: "#5366f4" }}>AI</Avatar><div><strong>你的专属购物助手</strong><small>帮你找到更合适的商品</small></div></div><div className={styles.aiMessages}>{aiMessages.map((item, index) => <div key={index} className={item.role === "user" ? styles.aiUserMessage : styles.aiAssistantMessage}>{item.content}</div>)}{aiBusy && <div className={styles.aiAssistantMessage}>正在思考…</div>}</div><div className={styles.aiComposer}><Input value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} onPressEnter={askAI} placeholder="例如：推荐一本适合入门的书" disabled={aiBusy} /><Button type="primary" icon={<SendOutlined />} onClick={askAI} loading={aiBusy} /></div></div>
+      </Drawer>
       <Modal
         open={authOpen}
         title={authMode === "login" ? "登录账户" : "创建账户"}
