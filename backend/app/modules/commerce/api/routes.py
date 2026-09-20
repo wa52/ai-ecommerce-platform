@@ -64,6 +64,14 @@ class VariantCreateRequest(BaseModel):
     attributes: list[dict] = Field(default_factory=list)
 
 
+class MarkPaidRequest(BaseModel):
+    transaction_reference: str | None = Field(default=None, max_length=250)
+
+
+class FulfillRequest(BaseModel):
+    lines: list[dict] = Field(min_length=1)
+
+
 def _handle(exc: CommerceError) -> HTTPException:
     return HTTPException(status_code=exc.status_code, detail=str(exc))
 
@@ -181,6 +189,34 @@ async def list_orders(
 async def get_order(order_id: str, _: AdminUserDep, service: ServiceDep) -> UnifiedOrder:
     try:
         return await service.get_order(order_id)
+    except CommerceError as exc:
+        raise _handle(exc) from exc
+
+
+@router.post("/orders/{order_id}/cancel", response_model=UnifiedOrder)
+async def cancel_order(order_id: str, _: AdminUserDep, service: ServiceDep) -> UnifiedOrder:
+    try:
+        return await service.cancel_order(order_id)
+    except CommerceError as exc:
+        raise _handle(exc) from exc
+
+
+@router.post("/orders/{order_id}/mark-paid", response_model=UnifiedOrder)
+async def mark_order_paid(
+    order_id: str, req: MarkPaidRequest, _: AdminUserDep, service: ServiceDep
+) -> UnifiedOrder:
+    try:
+        return await service.mark_order_paid(order_id, req.transaction_reference)
+    except CommerceError as exc:
+        raise _handle(exc) from exc
+
+
+@router.post("/orders/{order_id}/fulfill")
+async def fulfill_order(
+    order_id: str, req: FulfillRequest, _: AdminUserDep, service: ServiceDep
+) -> dict:
+    try:
+        return await service.fulfill_order(order_id, req.lines)
     except CommerceError as exc:
         raise _handle(exc) from exc
 

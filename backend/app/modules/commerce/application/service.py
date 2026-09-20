@@ -247,6 +247,24 @@ query Order($id: ID!) {
 }
 """
 
+_ORDER_CANCEL = """
+mutation OrderCancel($id: ID!) {
+  orderCancel(id: $id) { order { id number status paymentStatus created channel { slug } total { gross { amount currency } } lines { id productName quantity variant { sku } unitPrice { gross { amount currency } } } } errors { field message code } }
+}
+"""
+
+_ORDER_MARK_PAID = """
+mutation OrderMarkPaid($id: ID!, $reference: String) {
+  orderMarkAsPaid(id: $id, transactionReference: $reference) { order { id number status paymentStatus created channel { slug } total { gross { amount currency } } lines { id productName quantity variant { sku } unitPrice { gross { amount currency } } } } errors { field message code } }
+}
+"""
+
+_ORDER_FULFILL = """
+mutation OrderFulfill($order: ID!, $input: OrderFulfillInput!) {
+  orderFulfill(order: $order, input: $input) { fulfillment { id status } errors { field message code } }
+}
+"""
+
 _WAREHOUSES_QUERY = """
 query Warehouses { warehouses(first: 50) { edges { node { id name } } } }
 """
@@ -587,6 +605,24 @@ class CommerceService:
         if not node:
             raise NotFoundError(f"订单不存在：{order_id}")
         return self._to_order(node)
+
+    async def cancel_order(self, order_id: str) -> UnifiedOrder:
+        data = await self._gql(_ORDER_CANCEL, {"id": order_id})
+        payload = data.get("orderCancel") or {}
+        self._raise_on_errors(payload, "取消订单失败")
+        return self._to_order(payload["order"])
+
+    async def mark_order_paid(self, order_id: str, transaction_reference: str | None = None) -> UnifiedOrder:
+        data = await self._gql(_ORDER_MARK_PAID, {"id": order_id, "reference": transaction_reference})
+        payload = data.get("orderMarkAsPaid") or {}
+        self._raise_on_errors(payload, "标记支付失败")
+        return self._to_order(payload["order"])
+
+    async def fulfill_order(self, order_id: str, lines: list[dict]) -> dict:
+        data = await self._gql(_ORDER_FULFILL, {"order": order_id, "input": {"lines": lines}})
+        payload = data.get("orderFulfill") or {}
+        self._raise_on_errors(payload, "创建发货单失败")
+        return payload.get("fulfillment") or {}
 
     # ---------- Inventory ----------
 

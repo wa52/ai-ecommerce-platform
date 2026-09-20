@@ -75,6 +75,10 @@ export function fetchOrders(params: { page: number; pageSize: number }) {
   return request<OrderPage>(`/commerce/orders?${query.toString()}`);
 }
 
+export function cancelOrder(id: string) { return request<Order>(`/commerce/orders/${id}/cancel`, { method: "POST" }); }
+export function markOrderPaid(id: string, transaction_reference?: string) { return request<Order>(`/commerce/orders/${id}/mark-paid`, { method: "POST", body: JSON.stringify({ transaction_reference }) }); }
+export function fulfillOrder(id: string, lines: { orderLineId: string; quantity: number }[]) { return request<Record<string, unknown>>(`/commerce/orders/${id}/fulfill`, { method: "POST", body: JSON.stringify({ lines }) }); }
+
 export function fetchInventory(params: { page: number; pageSize: number }) {
   const query = new URLSearchParams({ first: String(params.pageSize) });
   return request<StockPage>(`/commerce/inventory?${query.toString()}`);
