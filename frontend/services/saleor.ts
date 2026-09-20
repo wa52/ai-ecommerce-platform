@@ -1,6 +1,12 @@
 export const SALEOR_API_URL =
   process.env.NEXT_PUBLIC_SALEOR_API_URL ?? "http://localhost:8000/graphql/";
 
+export const SALEOR_PAYMENT_GATEWAY =
+  process.env.NEXT_PUBLIC_SALEOR_PAYMENT_GATEWAY ?? "mirumee.payments.dummy";
+
+export const SALEOR_PAYMENT_LABEL =
+  SALEOR_PAYMENT_GATEWAY === "mirumee.payments.dummy" ? "沙箱支付" : "支付宝";
+
 const CHECKOUT_KEY = "sf_checkout_id";
 const CHECKOUT_QTY_KEY = "sf_checkout_qty";
 const CUSTOMER_KEY = "sf_customer_token";

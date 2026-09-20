@@ -151,6 +151,7 @@ powershell -File scripts\push_github.ps1 -Message "feat(xxx): ..."
 | `ALIPAY_GATEWAY_URL` | 否 | 支付宝网关；沙箱为 `https://openapi.alipaydev.com/gateway.do` |
 | `ALIPAY_APP_ID` / `ALIPAY_PRIVATE_KEY` / `ALIPAY_PUBLIC_KEY` | 否 | 支付宝应用 ID、商户 RSA2 私钥、支付宝公钥 |
 | `ALIPAY_NOTIFY_URL` / `ALIPAY_RETURN_URL` | 否 | 支付宝异步通知和同步回跳地址，必须使用外网可访问的 HTTPS 地址 |
+| `NEXT_PUBLIC_SALEOR_PAYMENT_GATEWAY` | 否 | Storefront 使用的 Saleor Payment App gateway；未安装支付宝 Payment App 时保持 Dummy |
 | `LLM_PROVIDER` / `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL` | 否 | LLM Gateway（留空则未配置，AI 接口返回 503） |
 | `EMBEDDING_PROVIDER` / `EMBEDDING_MODEL` | 否 | 嵌入（默认 `hashing`，生产建议 `openai_compatible`） |
 | `SHOPIFY_SHOP_DOMAIN` / `SHOPIFY_ACCESS_TOKEN` / `SHOPIFY_API_SCHEME` | 否 | Shopify Connector（留空则 `REAL_INTEGRATION: NOT_VERIFIED`） |

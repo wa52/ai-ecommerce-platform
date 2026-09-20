@@ -15,6 +15,8 @@ import {
   customerLogin,
   customerRegister,
   getCustomerEmail,
+  SALEOR_PAYMENT_GATEWAY,
+  SALEOR_PAYMENT_LABEL,
   type Checkout,
 } from "@/services/saleor";
 
@@ -29,8 +31,6 @@ interface CheckoutFormValues {
   country: string;
   createAccount: boolean;
 }
-
-const DEFAULT_GATEWAY = "mirumee.payments.dummy";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -103,7 +103,7 @@ export default function CheckoutPage() {
       const afterMethod = await checkoutRetrieve();
       const total = afterMethod?.total?.amount ?? 0;
       if (!(total > 0)) throw new Error("订单金额异常");
-      await checkoutPaymentCreate(DEFAULT_GATEWAY, total);
+      await checkoutPaymentCreate(SALEOR_PAYMENT_GATEWAY, total);
       const completed = await checkoutComplete();
       if (completed.order) {
         router.push(`/order/${completed.order.number}`);
@@ -178,7 +178,7 @@ export default function CheckoutPage() {
             )}
             <Form.Item>
               <Button type="primary" size="large" htmlType="submit" loading={busy} block>
-                下单（沙箱支付网关，{totalLabel}）
+                下单（{SALEOR_PAYMENT_LABEL}，{totalLabel}）
               </Button>
             </Form.Item>
           </Form>
@@ -199,7 +199,11 @@ export default function CheckoutPage() {
             <Typography.Text strong>{totalLabel}</Typography.Text>
           </div>
           <div style={{ marginTop: 16 }}>
-            <Typography.Text type="secondary">沙箱环境使用 Dummy 支付网关：下单即视为支付成功（FULLY_CHARGED）。</Typography.Text>
+            <Typography.Text type="secondary">
+              {SALEOR_PAYMENT_GATEWAY === "mirumee.payments.dummy"
+                ? "当前为沙箱支付：下单即视为支付成功（FULLY_CHARGED）。"
+                : "当前使用支付宝支付，支付结果以支付宝异步通知为准。"}
+            </Typography.Text>
           </div>
         </Card>
       </div>
