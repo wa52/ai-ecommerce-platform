@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, InputNumber, message, Result, Skeleton, Typography } from "antd";
+import { Button, Card, Divider, InputNumber, message, Result, Skeleton, Tag, Typography } from "antd";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import StorefrontLayout from "@/components/StorefrontLayout";
@@ -25,6 +25,7 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<StorefrontProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [qty, setQty] = useState(1);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -34,9 +35,7 @@ export default function ProductDetailPage() {
     fetchProductBySlug(slugString)
       .then((p) => {
         setProduct(p);
-        const available = p?.variants.find((v) => (v.quantityAvailable ?? 0) > 0);
-        if (p?.price) return;
-        void available;
+        setSelectedVariantId(p?.variants.find((v) => (v.quantityAvailable ?? 0) > 0)?.id ?? p?.variants[0]?.id ?? null);
       })
       .catch((e) => messageApi.error(String(e)))
       .finally(() => setLoading(false));
@@ -75,7 +74,7 @@ export default function ProductDetailPage() {
 
   const description = parseDescriptionText(product.description);
   const sellableVariants = product.variants.filter((v) => (v.quantityAvailable ?? 0) > 0);
-  const variant = sellableVariants[0] ?? product.variants[0] ?? null;
+  const variant = product.variants.find((item) => item.id === selectedVariantId) ?? sellableVariants[0] ?? product.variants[0] ?? null;
   const price = variant?.price ?? product.price;
   const maxQty = variant?.quantityAvailable ?? 0;
 
@@ -84,16 +83,25 @@ export default function ProductDetailPage() {
       {contextHolder}
       <Card>
         <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
-          <img
-            src={product.imageUrl ?? getBookCoverFallback(product.slug)}
-            alt={product.imageAlt ?? product.name}
-            style={{ width: 320, height: 400, objectFit: "cover", borderRadius: 8 }}
-            onError={(event) => {
-              const fallback = getBookCoverFallback(product.slug);
-              if (event.currentTarget.src.endsWith(fallback)) return;
-              event.currentTarget.src = fallback;
-            }}
-          />
+          <div style={{ width: 320, maxWidth: "100%" }}>
+            <img
+              src={product.imageUrl ?? getBookCoverFallback(product.slug)}
+              alt={product.imageAlt ?? product.name}
+              style={{ width: "100%", aspectRatio: "4 / 5", objectFit: "cover", borderRadius: 8 }}
+              onError={(event) => {
+                const fallback = getBookCoverFallback(product.slug);
+                if (event.currentTarget.src.endsWith(fallback)) return;
+                event.currentTarget.src = fallback;
+              }}
+            />
+            {product.media.length > 1 && (
+              <div style={{ display: "flex", gap: 8, marginTop: 10, overflowX: "auto" }}>
+                {product.media.map((media, index) => (
+                  <img key={`${media.url}-${index}`} src={media.url} alt={media.alt ?? `${product.name} 图片 ${index + 1}`} style={{ width: 56, height: 70, objectFit: "cover", borderRadius: 4, border: index === 0 ? "2px solid #1677ff" : "1px solid #eee" }} />
+                ))}
+              </div>
+            )}
+          </div>
           <div style={{ flex: 1, minWidth: 320 }}>
             <Typography.Title level={3} style={{ marginTop: 0 }}>
               {product.name}
@@ -101,9 +109,22 @@ export default function ProductDetailPage() {
             <Typography.Title level={2} style={{ color: "#111", marginTop: 0 }}>
               {price && typeof price.amount === "number" ? `${price.currency} ${price.amount.toFixed(2)}` : "询价"}
             </Typography.Title>
+            {product.category && <Tag color="blue">{product.category.name}</Tag>}
+            {product.variants.length > 1 && (
+              <div style={{ margin: "20px 0" }}>
+                <Typography.Text strong>选择规格</Typography.Text>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                  {product.variants.map((item) => (
+                    <Button key={item.id} type={item.id === variant?.id ? "primary" : "default"} disabled={(item.quantityAvailable ?? 0) <= 0} onClick={() => { setSelectedVariantId(item.id); setQty(1); }}>
+                      {item.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
             {variant && (
               <Typography.Paragraph>
-                规格库存：{variant.sku ?? variant.name} · 剩余 {maxQty}
+                规格库存：{variant.sku ?? variant.name} · {maxQty > 0 ? `剩余 ${maxQty}` : "暂时缺货"}
               </Typography.Paragraph>
             )}
             {product.isAvailableForPurchase && variant && maxQty > 0 ? (
@@ -118,6 +139,7 @@ export default function ProductDetailPage() {
             )}
             {description && (
               <div style={{ marginTop: 24, whiteSpace: "pre-wrap" }}>
+                <Divider />
                 <Typography.Paragraph strong>商品介绍</Typography.Paragraph>
                 <Typography.Paragraph>{description}</Typography.Paragraph>
               </div>

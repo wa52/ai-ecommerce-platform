@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, Empty, Input, Result, Skeleton, Typography } from "antd";
+import { Card, Empty, Input, Result, Select, Skeleton, Space, Tag, Typography } from "antd";
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import StorefrontLayout from "@/components/StorefrontLayout";
@@ -11,11 +11,14 @@ export default function StorefrontHome() {
   const [products, setProducts] = useState<StorefrontProduct[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<string>("all");
+  const [sort, setSort] = useState<string>("default");
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     setError(null);
-    fetchProducts({ first: 24 })
+    fetchProducts({ first: 100 })
       .then((page) => setProducts(page.items))
       .catch((e) => setError(String(e)));
   }, []);
@@ -24,7 +27,7 @@ export default function StorefrontHome() {
     const timer = setTimeout(() => {
       setError(null);
       startTransition(() => {
-        fetchProducts({ first: 24, search: search || null })
+        fetchProducts({ first: 100, search: search || null })
           .then((page) => setProducts(page.items))
           .catch((e) => setError(String(e)));
       });
@@ -35,10 +38,21 @@ export default function StorefrontHome() {
   const retry = () => {
     setError(null);
     setProducts(null);
-    fetchProducts({ first: 24, search: search || null })
+    fetchProducts({ first: 100, search: search || null })
       .then((page) => setProducts(page.items))
       .catch((e) => setError(String(e)));
   };
+
+  const categories = [...new Map((products ?? []).filter((p) => p.category).map((p) => [p.category!.slug, p.category!])).values()];
+  const visibleProducts = (products ?? [])
+    .filter((p) => category === "all" || p.category?.slug === category)
+    .filter((p) => !onlyAvailable || p.isAvailableForPurchase)
+    .sort((a, b) => {
+      if (sort === "price-asc") return (a.price?.amount ?? Infinity) - (b.price?.amount ?? Infinity);
+      if (sort === "price-desc") return (b.price?.amount ?? 0) - (a.price?.amount ?? 0);
+      if (sort === "name") return a.name.localeCompare(b.name, "zh-CN");
+      return 0;
+    });
 
   let content: React.ReactNode;
   if (error) {
@@ -60,12 +74,12 @@ export default function StorefrontHome() {
         ))}
       </div>
     );
-  } else if (products.length === 0) {
+  } else if (visibleProducts.length === 0) {
     content = <Empty description="暂无上架商品" />;
   } else {
     content = (
       <div className={styles.productGrid}>
-        {products.map((p) => (
+        {visibleProducts.map((p) => (
           <Link key={p.id} href={`/product/${p.slug}`} className={styles.productLink}>
             <Card
               hoverable
@@ -98,7 +112,7 @@ export default function StorefrontHome() {
 
   return (
     <StorefrontLayout>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+      <div className={styles.heroRow}>
         <Typography.Title level={3} style={{ margin: 0 }}>
           全部商品
         </Typography.Title>
@@ -110,6 +124,16 @@ export default function StorefrontHome() {
           style={{ width: 280 }}
           loading={pending}
         />
+      </div>
+      <div className={styles.filterBar}>
+        <Space wrap>
+          <Typography.Text type="secondary">分类</Typography.Text>
+          <Select value={category} onChange={setCategory} style={{ minWidth: 160 }} options={[{ value: "all", label: "全部分类" }, ...categories.map((c) => ({ value: c.slug, label: c.name }))]} />
+          <Typography.Text type="secondary">排序</Typography.Text>
+          <Select value={sort} onChange={setSort} style={{ minWidth: 160 }} options={[{ value: "default", label: "推荐排序" }, { value: "price-asc", label: "价格从低到高" }, { value: "price-desc", label: "价格从高到低" }, { value: "name", label: "名称排序" }]} />
+          <Tag.CheckableTag checked={onlyAvailable} onChange={setOnlyAvailable}>仅看有货</Tag.CheckableTag>
+        </Space>
+        {products && <Typography.Text type="secondary">共 {visibleProducts.length} 件商品</Typography.Text>}
       </div>
       {content}
     </StorefrontLayout>

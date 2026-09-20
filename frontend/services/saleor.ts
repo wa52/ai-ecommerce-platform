@@ -36,6 +36,8 @@ export interface StorefrontProduct {
   variants: StorefrontVariant[];
   imageUrl: string | null;
   imageAlt: string | null;
+  media: { url: string; alt: string | null }[];
+  category: { name: string; slug: string } | null;
 }
 
 export interface StorefrontProductPage {
@@ -193,6 +195,7 @@ query StorefrontProducts($first: Int!, $after: String, $search: String) {
         id name slug isAvailableForPurchase
         description
         media { url alt }
+        category { name slug }
         pricing { priceRange { start { gross { amount currency } } } }
         variants { id name sku quantityAvailable }
       }
@@ -226,6 +229,7 @@ export async function fetchProducts(params: {
       isAvailableForPurchase: boolean;
       description: string | null;
       media?: { url: string; alt: string | null }[];
+      category?: { name: string; slug: string } | null;
       pricing?: { priceRange?: { start?: { gross?: Money } } } | null;
       variants: { id: string; name: string; sku: string | null; quantityAvailable: number | null }[];
     };
@@ -239,6 +243,8 @@ export async function fetchProducts(params: {
       variants: n.variants.map((v) => ({ ...v, price: null })),
       imageUrl: normalizeMediaUrl(n.media?.[0]?.url),
       imageAlt: n.media?.[0]?.alt ?? null,
+      media: (n.media ?? []).map((m) => ({ url: normalizeMediaUrl(m.url) ?? "", alt: m.alt ?? null })),
+      category: n.category ?? null,
     };
     return product;
   });
@@ -256,6 +262,7 @@ query StorefrontProduct($slug: String!) {
     id name slug isAvailableForPurchase
     description
     media { url alt }
+    category { name slug }
     pricing { priceRange { start { gross { amount currency } } } }
     variants {
       id name sku quantityAvailable
@@ -274,6 +281,7 @@ export async function fetchProductBySlug(slug: string): Promise<StorefrontProduc
     isAvailableForPurchase: boolean;
     description: string | null;
     media?: { url: string; alt: string | null }[];
+    category?: { name: string; slug: string } | null;
     pricing?: { priceRange?: { start?: { gross?: Money } } } | null;
     variants: {
       id: string;
@@ -300,6 +308,8 @@ export async function fetchProductBySlug(slug: string): Promise<StorefrontProduc
     })),
     imageUrl: normalizeMediaUrl(n.media?.[0]?.url),
     imageAlt: n.media?.[0]?.alt ?? null,
+    media: (n.media ?? []).map((m) => ({ url: normalizeMediaUrl(m.url) ?? "", alt: m.alt ?? null })),
+    category: n.category ?? null,
   };
 }
 
