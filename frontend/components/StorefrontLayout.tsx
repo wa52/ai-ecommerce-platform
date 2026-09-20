@@ -1,6 +1,6 @@
 "use client";
 
-import { ShoppingOutlined, UserOutlined } from "@ant-design/icons";
+import { SearchOutlined, ShoppingOutlined, UserOutlined } from "@ant-design/icons";
 import { Badge, Button, Form, Input, Layout, Menu, Modal, Tabs, message } from "antd";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -17,6 +17,7 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authBusy, setAuthBusy] = useState(false);
+  const [headerSearch, setHeaderSearch] = useState("");
   const [messageApi, contextHolder] = message.useMessage();
 
   useEffect(() => {
@@ -77,6 +78,8 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
 
   const items = [
     { key: "/", label: <Link href="/">首页</Link> },
+    { key: "/#all-products", label: <Link href="/#all-products">全部商品</Link> },
+    { key: "/#hot", label: <Link href="/#hot">热销榜单</Link> },
     { key: "/service", label: <Link href="/service">服务保障</Link> },
     { key: "/cart", label: <Badge size="small" count={cartQty}><span><ShoppingOutlined /> 购物车</span></Badge> },
   ];
@@ -84,18 +87,20 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
   return (
     <Layout style={{ minHeight: "100vh", background: "#fff" }}>
       {contextHolder}
-      <Header style={{ background: "#fff", borderBottom: "1px solid #f0f0f0" }}>
-        <div style={{ display: "flex", alignItems: "center", maxWidth: 1080, margin: "0 auto", width: "100%" }}>
-          <Link href="/" style={{ fontSize: 18, fontWeight: 600, color: "#111", marginRight: 40 }}>
-            AI 电商商城
+      <Header style={{ background: "#fff", borderBottom: "1px solid #edf0f5", height: 72, lineHeight: "72px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 20, maxWidth: 1440, margin: "0 auto", width: "100%" }}>
+          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 205, fontSize: 19, fontWeight: 750, color: "#17233f" }}>
+            <span style={{ display: "grid", placeItems: "center", width: 34, height: 34, borderRadius: 10, color: "#fff", background: "linear-gradient(135deg,#475cff,#7187ff)", fontSize: 20 }}>▣</span>
+            <span>AI 电商商城<small style={{ display: "block", marginTop: -19, color: "#8993a8", fontSize: 8, fontWeight: 400, letterSpacing: 1 }}>生活更美好 · AI 更懂你</small></span>
           </Link>
           <Menu
             mode="horizontal"
             selectedKeys={[pathname]}
             items={items}
-            style={{ flex: 1, borderBottom: "none", background: "transparent", minWidth: 320 }}
-            onClick={(e) => router.push(e.key)}
+            style={{ flex: 1, borderBottom: "none", background: "transparent", minWidth: 360 }}
+            onClick={(e) => router.push(e.key.split("#")[0] || "/")}
           />
+          <Input.Search value={headerSearch} onChange={(e) => setHeaderSearch(e.target.value)} onSearch={(value) => { window.dispatchEvent(new CustomEvent("sf-home-search", { detail: value })); router.push("/"); }} placeholder="搜索商品、品牌或关键词..." enterButton={<SearchOutlined />} style={{ width: 300 }} />
           {logged ? (
             <Button type="text" icon={<UserOutlined />} onClick={() => router.push("/account")}>
               我的账户
@@ -107,7 +112,7 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
           )}
         </div>
       </Header>
-      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "24px 16px 48px", width: "100%" }}>{children}</div>
+      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "18px 24px 48px", width: "100%" }}>{children}</div>
       <Modal
         open={authOpen}
         title={authMode === "login" ? "登录账户" : "创建账户"}
