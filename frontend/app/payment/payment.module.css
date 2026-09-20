@@ -1,0 +1,12 @@
+.paymentLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .paymentLayout {
+    grid-template-columns: 1fr;
+  }
+}

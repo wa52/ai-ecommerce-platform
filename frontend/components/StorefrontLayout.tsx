@@ -77,6 +77,7 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
 
   const items = [
     { key: "/", label: <Link href="/">首页</Link> },
+    { key: "/service", label: <Link href="/service">服务保障</Link> },
     { key: "/cart", label: <Badge size="small" count={cartQty}><span><ShoppingOutlined /> 购物车</span></Badge> },
   ];
 
