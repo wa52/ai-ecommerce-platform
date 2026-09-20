@@ -16,6 +16,12 @@
 | Phase 8 | RAG | PASS（REAL_MODEL_INTEGRATION: NOT_VERIFIED） | 见下方《Phase 8》 |
 | Phase 9 | Analytics | PASS | 见下方《Phase 9》 |
 | Phase 10 | 工程化（Tests/Security/Logging/Deployment） | PASS | 见下方《Phase 10》 |
+| Phase 11 | 消费者 Storefront（商品/购物车/结算/订单/账户） | PASS | 见下方《Phase 11》 |
+
+> **PASS 语义说明**：下表及全文的 PASS 表示「该阶段可测试的内部实现已通过验收」，**不代表最终产品已完成**。
+> 真实第三方集成（Shopify / Stripe / 真实 LLM / 真实 Embedding）因缺少外部凭据统一标注
+> `REAL_INTEGRATION / REAL_MODEL_INTEGRATION: NOT_VERIFIED`（BLOCKED），不计入 PASS。
+> 产品级缺口在《项目总结》中单独列出。
 
 ---
 
@@ -199,7 +205,7 @@ down → up：数据持久
 
 - 第三方平台真实 Connector（Phase 4）
 - 业务模块（IAM / Commerce / Store / Finance / Analytics / AI 实体）（Phase 2–9）
-- Sales 侧完整 Storefront 页面（当前为系统状态面板）
+- Sales 侧完整 Storefront 页面（Phase 1 当时仅系统状态面板；已由 Phase 11 补齐，见下文）
 
 ## 19. Blocked 项
 
@@ -1750,6 +1756,80 @@ Phase 1–10 全部完成并通过验收；真实第三方集成项单独标注 
 
 ---
 
+# Phase 11 — 消费者 Storefront（商品 / 购物车 / 结算 / 订单 / 账户）
+
+> 状态：PASS。日期：2026-09-20。证据：`backend/scripts/storefront_acceptance.py`（真实 Saleor GraphQL E2E）。
+
+## 1. 背景与目标
+
+补上此前缺失的「消费者电商网站」完整链路（用户深挖确认：Phase 1–10 之前只有管理后台 + Agent/RAG，
+消费者商城、购物车、Checkout 仅存在于 `PROJECT_SPEC.md`）。本 Phase 依据 spec §2.1「消费者商城
+（Storefront）」补齐：首页/商品列表 → 商品详情 → 购物车 → 结算（地址/配送/支付）→ 订单 → 我的订单。
+
+架构决策：**Storefront 直接调用 Saleor GraphQL（`NEXT_PUBLIC_SALEOR_API_URL`）**，不经 FastAPI 代理，
+符合 spec「Saleor 负责 Cart/Checkout/Order，AI 层不重复实现」。
+
+## 2. 交付内容
+
+| 项 | 说明 |
+| --- | --- |
+| 路由 | `/` 商品列表（搜索）、`/product/[slug]` 详情+Variant、`/cart`、`/checkout`、`/order/[number]`、`/account` |
+| 管理员后台 | 移入 `/admin`（原根路径 `AppShell`） |
+| 服务层 | `frontend/services/saleor.ts`：商品查询、Checkout 全流程、客户注册/登录/订单历史 |
+| 后端修复 | `CommerceService.publish_to_channel` 增加 `visibleInListings: true`（此前只 `isPublished`，导致匿名商品列表为空） |
+| 初始化脚本 | `scripts/saleor_storefront_init.ps1`（幂等）：关闭注册邮箱确认 + 补齐商品 Listing 可见性 |
+| 验收脚本 | `backend/scripts/storefront_acceptance.py` |
+
+## 3. 功能验收
+
+| 验收项 | 状态 | 说明 |
+| --- | --- | --- |
+| 匿名商品列表 | PASS | `products(first, channel)` 返回 2 个已发布商品 |
+| 商品详情 / Variant / 库存 / 价格 | PASS | `product(slug)` 匿名可用；`quantityAvailable` 正常 |
+| 购物车（Checkout 创建/加行/改量/删行） | PASS | `checkoutCreate` + `checkoutLinesAdd`；UI 展示小计 |
+| 结算邮箱 | PASS | `checkoutEmailUpdate` |
+| 收货地址 / 账单地址 | PASS | `checkoutShippingAddressUpdate` / `checkoutBillingAddressUpdate`（US+TX 必需字段） |
+| 配送方式 | PASS | `checkoutDeliveryMethodUpdate`（Default，0 运费） |
+| 支付 | PASS | Dummy 网关 `checkoutPaymentCreate`，支付后 `FULLY_CHARGED` |
+| 下单完成 | PASS | `checkoutComplete` → 真实 Order（UNFULFILLED / FULLY_CHARGED） |
+| 客户注册 | PASS | `accountRegister`（redirectUrl 传入；确认邮件已在沙箱关闭） |
+| 客户登录 | PASS | `tokenCreate` 客户账户（非 staff） |
+| 我的订单 | PASS | `me { orders }` 关联邮箱账户下的订单历史 |
+
+## 4. 实测证据
+
+```text
+storefront_acceptance.py：13/13 PASS
+  匿名列表、详情、checkoutCreate、email、shipping、billing、delivery、payment、complete、register、tokenCreate、me.orders
+
+Playwright 实机流程：
+  / 列表 → /product/[slug] 加入购物车 → /cart（小计正确）→ /checkout 填地址+创建账户 → 下单
+  → /order/10（FULLY_CHARGED）→ /account 显示 shopper2@example.com 与订单 #10
+  /admin 管理后台仍可访问（健康检查 OK）
+```
+
+## 5. 测试数量
+
+```text
+后端 pytest：121 passed（含 CommerceService 变更后回归）
+Storefront 验收脚本：13 项 PASS
+Playwright 交互：完整下单链路 PASS
+```
+
+## 6. 已知问题
+
+1. 商品图片未接入（沙箱商品无媒体），前端用占位图标，不影响购买链路。
+2. `checkoutCreate` 阶段即把 checkout id 存 localStorage，过期/失效由 `checkoutRetrieve` 返回空并清除。
+3. 真实支付网关（Stripe/PayPal）未接入，使用 Saleor 内置 Dummy 网关（沙箱下单即 FULLY_CHARGED）。
+
+## 7. 最终状态
+
+```text
+PASS
+```
+
+---
+
 # 项目总结
 
 ## 交付范围
@@ -1766,6 +1846,21 @@ Phase 1–10 全部完成并通过验收；真实第三方集成项单独标注 
 | 8 | RAG（知识库/混合检索/引用回答，pgvector） | PASS |
 | 9 | Analytics（统一指标口径 + Dashboard + 人工核对） | PASS |
 | 10 | 工程化（日志/安全/限流/重试/覆盖率/E2E） | PASS |
+| 11 | 消费者 Storefront（商品/购物车/结算/订单/账户） | PASS |
+
+## 产品级状态（对照“商家真正能开的电商网站”目标）
+
+| 能力 | 状态 | 说明 |
+| --- | --- | --- |
+| 消费者浏览商品 / 搜索 | ✅ | 匿名商品列表 + 详情 + Variant 库存/价格 |
+| 购物车 | ✅ | Saleor Checkout 驱动，可加/改/删行 |
+| 结算 + 地址 + 配送 | ✅ | 收货/账单地址、配送方式选择 |
+| 支付下单 | ✅ | Dummy 网关（沙箱即 FULLY_CHARGED）；真实网关 BLOCKED |
+| 订单与订单详情 | ✅ | `checkoutComplete` → Order；`/order/[number]` 展示 |
+| 客户注册 / 登录 / 订单历史 | ✅ | Saleor 账户体系；`me.orders` 关联 |
+| 商家管理后台 | ✅ | `/admin`（商品/订单/财务/分析/登录） |
+| AI / Agent / RAG | ✅ | 内部实现通过；**真实模型 BLOCKED**（缺 API Key） |
+| 真实 Shopify 集成 | ⚠️ | 代码存在，**真实店铺未验证**（BLOCKED） |
 
 ## 架构落点
 
@@ -1781,9 +1876,18 @@ Phase 1–10 全部完成并通过验收；真实第三方集成项单独标注 
 ## 最终结论
 
 ```text
-V1 骨架与业务闭环：PASS
+V1 骨架 + 商家管理后台 + 消费者 Storefront（完整下单链路）：PASS
 真实第三方集成：BLOCKED（缺外部凭据，已明确记录续验方式）
+  - Shopify 真实店铺、Stripe/PayPal、真实 LLM / Embedding
 ```
+
+## 已知缺口（产品级，非本阶段验收范围）
+
+- 商品图片 / 详情富文本编辑（沙箱商品无媒体）
+- 优惠券 / 促销（Saleor Promotion 可扩展，前端未接）
+- 退换货 / 售后流程、物流单号
+- AI Center 前端（文案/翻译/知识库 UI）、趋势分析、批量同步任务 UI
+- 多语言 / 多币种、真实支付与履约集成
 ---
 
 # 补充验证（Additional Verification）

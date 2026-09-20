@@ -402,7 +402,12 @@ class CommerceService:
                 "id": product_id,
                 "input": {
                     "updateChannels": [
-                        {"channelId": channel_id, "isPublished": True, "isAvailableForPurchase": True}
+                        {
+                            "channelId": channel_id,
+                            "isPublished": True,
+                            "isAvailableForPurchase": True,
+                            "visibleInListings": True,
+                        }
                     ]
                 },
             },

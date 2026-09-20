@@ -1,0 +1,14 @@
+﻿PASS admin login
+PASS anonymous product list | total=2
+PASS anonymous product detail | slug=ext-shopify-555
+PASS checkoutCreate
+PASS checkoutEmailUpdate
+PASS checkoutShippingAddressUpdate | methods=['U2hpcHBpbmdNZXRob2Q6MQ==']
+PASS checkoutBillingAddressUpdate
+PASS checkoutDeliveryMethodUpdate | total=9.9 USD
+PASS checkoutPaymentCreate (dummy gateway) | total=9.9
+PASS checkoutComplete -> order | number=12 status=UNFULFILLED payment=FULLY_CHARGED
+PASS accountRegister | accept_customer_12@example.com
+PASS customer tokenCreate
+PASS customer order history (me.orders) | email=accept_customer_12@example.com
+STORE  ACCEPTANCE: PASS

@@ -1,6 +1,6 @@
-# AI 跨境电商平台（Phase 1 骨架）
+# AI 跨境电商平台
 
-**AI-Native Multi-Platform E-Commerce Platform**：Saleor 作为 Commerce Core，FastAPI 作为 AI 扩展层（架构定义见 `PROJECT_SPEC.md` §2.1）。
+**AI-Native Multi-Platform E-Commerce Platform**：Saleor 作为 Commerce Core，FastAPI 作为 AI 扩展层，Next.js 同时承载消费者 Storefront 与商家 Admin（架构定义见 `PROJECT_SPEC.md` §2.1）。
 
 ## 外部依赖
 
@@ -42,17 +42,25 @@ docker compose exec saleor-api python3 manage.py shell -c "from saleor.account.m
 
 # 4. 执行 AI 扩展层 Migration
 docker compose exec ai-backend alembic upgrade head
+
+# 5. Storefront 前置初始化（幂等，可重复执行）：
+#    关闭注册邮箱确认 + 补齐商品 Listing 可见性
+powershell -File scripts\saleor_storefront_init.ps1
 ```
 
 > `saleor` 与 `ai_platform` 数据库由 `db/init/create-databases.sh` 在数据库卷首次初始化时自动创建。
 > 若数据库卷已存在（早于该脚本），需手动创建一次：
 > `docker compose exec db psql -U <POSTGRES_USER> -d postgres -c "CREATE DATABASE saleor"`（`ai_platform` 同理）。
+>
+> 若 Saleor 中尚无商品，可在 `http://localhost:9000`（Saleor 商家后台）创建并发布商品，或运行
+> `backend/scripts/saleor_bootstrap.py` 引导默认商品类型后经 AI 扩展层 API 创建商品。
 
 运行后访问：
 
 | 服务 | 地址 |
 | --- | --- |
-| 平台前端（本阶段：系统状态面板） | http://localhost:3000 |
+| 消费者 Storefront（商城） | http://localhost:3000 |
+| 商家管理后台 | http://localhost:3000/admin |
 | AI 扩展层 Health API | http://localhost:8001/api/v1/health |
 | Saleor GraphQL | http://localhost:8000/graphql/ |
 | Saleor 商家后台 | http://localhost:9000 |
@@ -60,7 +68,8 @@ docker compose exec ai-backend alembic upgrade head
 | Mailpit（邮件测试） | http://localhost:8025 |
 | Jaeger UI | http://localhost:16686 |
 
-前端环境变量（本地开发用）：`NEXT_PUBLIC_AI_API_URL`（默认 `http://localhost:8001/api/v1`）。
+前端环境变量（本地开发用）：`NEXT_PUBLIC_AI_API_URL`（默认 `http://localhost:8001/api/v1`）、
+`NEXT_PUBLIC_SALEOR_API_URL`（默认 `http://localhost:8000/graphql/`）。
 
 ## 本地开发（容器外）
 
@@ -79,16 +88,21 @@ npm run dev            # http://localhost:3000
 npm run build          # 生产构建
 ```
 
-## 架构（Phase 1）
+## 架构
 
 ```text
-Next.js Storefront/Admin (3000)
-        │
-FastAPI AI 扩展层 (8001) ── Commerce Adapter ──> Saleor GraphQL (8000)
+Next.js Storefront / Admin (3000)
+        │                    │
+        │(NEXT_PUBLIC_SALEOR_API_URL)  (NEXT_PUBLIC_AI_API_URL)
+        ▼                    ▼
+Saleor GraphQL (8000)   FastAPI AI 扩展层 (8001) ── Commerce Adapter ──> Saleor GraphQL (8000)
         │                                            │
-PostgreSQL(pgvector) + Redis + MinIO         Celery Worker + Dashboard(9000)
+PostgreSQL + Redis       PostgreSQL(pgvector) + Redis + MinIO
+Celery Worker + Dashboard(9000)                Celery Worker(8001 worker)
 ```
 
+- **Storefront（消费者商城）**：`/` 商品列表、`/product/[slug]` 详情、`/cart` 购物车、`/checkout` 结算、`/order/[number]` 订单、`/account` 账户——直接调用 Saleor GraphQL。
+- **Admin（商家后台）**：`/admin`（系统状态/商品订单/财务/分析/登录）——调用 FastAPI。
 - Commerce 核心能力（商品/订单/库存/支付）由 Saleor 提供，AI 层禁止直接读写 Saleor 数据库。
 - AI 层通过 `app/connectors/`（Commerce Adapter）访问 Saleor GraphQL API。
 
@@ -108,9 +122,10 @@ PostgreSQL(pgvector) + Redis + MinIO         Celery Worker + Dashboard(9000)
 ## 验收
 
 - 验收报告：`ACCEPTANCE_REPORT.md`
-- 可复查证据：`docs/evidence/phase1/`、`docs/evidence/phase2/`
+- 可复查证据：`docs/evidence/phase1/` … `docs/evidence/final/`
 - 后端测试：`cd backend; .venv\Scripts\python -m pytest`
 - 验收脚本（需环境变量提供凭据）：
+  - `backend/scripts/storefront_acceptance.py`（消费者 Storefront 完整 E2E；可选 `SALEOR_ADMIN_EMAIL` / `SALEOR_ADMIN_PASSWORD`）
   - `backend/scripts/iam_acceptance.py`（`IAM_ADMIN_EMAIL` / `IAM_ADMIN_PASSWORD` / `IAM_CUSTOMER_EMAIL` / `IAM_CUSTOMER_PASSWORD`）
   - `backend/scripts/saleor_acceptance.py`（`SALEOR_ADMIN_EMAIL` / `SALEOR_ADMIN_PASSWORD`）
   - `backend/scripts/acceptance_worker_check.py`
