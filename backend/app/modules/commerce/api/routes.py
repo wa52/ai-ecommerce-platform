@@ -38,6 +38,16 @@ class StockPage(BaseModel):
     page: Page
 
 
+class CustomerPage(BaseModel):
+    items: list[dict]
+    page: Page
+
+
+class CategoryPage(BaseModel):
+    items: list[dict]
+    page: Page
+
+
 class ProductCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=250)
     slug: str = Field(min_length=1, max_length=255, pattern=r"^[a-z0-9-]+$")
@@ -82,6 +92,26 @@ def _handle(exc: CommerceError) -> HTTPException:
 @router.get("/stores", response_model=list[StoreChannel])
 async def list_stores(_: AdminUserDep, service: ServiceDep) -> list[StoreChannel]:
     return await service.list_stores()
+
+
+@router.get("/customers", response_model=CustomerPage)
+async def list_customers(
+    _: AdminUserDep,
+    service: ServiceDep,
+    search: str | None = Query(default=None),
+    first: int = Query(default=20, ge=1, le=100),
+    after: str | None = Query(default=None),
+) -> CustomerPage:
+    items, page = await service.list_customers(search=search, first=first, after=after)
+    return CustomerPage(items=items, page=page)
+
+
+@router.get("/categories", response_model=CategoryPage)
+async def list_categories(
+    _: AdminUserDep, service: ServiceDep, first: int = Query(default=100, ge=1, le=100), after: str | None = Query(default=None)
+) -> CategoryPage:
+    items, page = await service.list_categories(first=first, after=after)
+    return CategoryPage(items=items, page=page)
 
 
 # ---------- Product ----------

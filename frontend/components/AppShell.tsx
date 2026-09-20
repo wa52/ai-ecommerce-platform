@@ -11,10 +11,12 @@ import FinancePage from "@/features/finance/FinancePage";
 import OrdersPage from "@/features/orders/OrdersPage";
 import InventoryPage from "@/features/inventory/InventoryPage";
 import AICenterPage from "@/features/ai-center/AICenterPage";
+import CustomersPage from "@/features/customers/CustomersPage";
+import CategoriesPage from "@/features/categories/CategoriesPage";
 
 const { Header, Content, Sider } = Layout;
 
-type ViewKey = "system" | "products" | "orders" | "inventory" | "analytics" | "finance" | "ai" | "auth";
+type ViewKey = "system" | "products" | "categories" | "orders" | "inventory" | "customers" | "analytics" | "finance" | "ai" | "auth";
 
 export default function AppShell() {
   const [view, setView] = useState<ViewKey>("auth");
@@ -45,8 +47,10 @@ export default function AppShell() {
             items={[
               { key: "system", label: "系统状态" },
               { key: "products", label: "商品 / 订单" },
+              { key: "categories", label: "分类管理" },
               { key: "orders", label: "订单管理" },
               { key: "inventory", label: "库存管理" },
+              { key: "customers", label: "客户管理" },
               { key: "analytics", label: "数据分析" },
               { key: "finance", label: "财务" },
               { key: "ai", label: "AI Center" },
@@ -75,8 +79,12 @@ export default function AppShell() {
             ))}
           {view === "orders" &&
             (isAdmin ? <OrdersPage /> : <Typography.Paragraph type="warning">请先使用商家账号登录后管理订单。</Typography.Paragraph>)}
+          {view === "categories" &&
+            (isAdmin ? <CategoriesPage /> : <Typography.Paragraph type="warning">请先使用商家账号登录后管理分类。</Typography.Paragraph>)}
           {view === "inventory" &&
             (isAdmin ? <InventoryPage /> : <Typography.Paragraph type="warning">请先使用商家账号登录后管理库存。</Typography.Paragraph>)}
+          {view === "customers" &&
+            (isAdmin ? <CustomersPage /> : <Typography.Paragraph type="warning">请先使用商家账号登录后管理客户。</Typography.Paragraph>)}
           {view === "ai" &&
             (isAdmin ? <AICenterPage /> : <Typography.Paragraph type="warning">请先使用商家账号登录后使用 AI Center。</Typography.Paragraph>)}
           {view === "finance" &&

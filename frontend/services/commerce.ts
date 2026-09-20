@@ -55,6 +55,10 @@ export interface Stock {
 }
 
 export interface StockPage { items: Stock[]; page: Page }
+export interface Customer { id: string; email: string; first_name: string; last_name: string; date_joined: string; is_active: boolean; order_count: number }
+export interface CustomerPage { items: Customer[]; page: Page }
+export interface Category { id: string; name: string; slug: string; level: number }
+export interface CategoryPage { items: Category[]; page: Page }
 
 export function fetchProducts(params: { page: number; pageSize: number; search?: string }) {
   const query = new URLSearchParams({ first: String(params.pageSize) });
@@ -83,3 +87,9 @@ export function fetchInventory(params: { page: number; pageSize: number }) {
   const query = new URLSearchParams({ first: String(params.pageSize) });
   return request<StockPage>(`/commerce/inventory?${query.toString()}`);
 }
+
+export function fetchCustomers(params: { page: number; pageSize: number; search?: string }) {
+  const query = new URLSearchParams({ first: String(params.pageSize) }); if (params.search) query.set("search", params.search);
+  return request<CustomerPage>(`/commerce/customers?${query.toString()}`);
+}
+export function fetchCategories() { return request<CategoryPage>("/commerce/categories?first=100"); }

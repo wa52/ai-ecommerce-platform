@@ -43,6 +43,21 @@ query Channels {
 }
 """
 
+_CUSTOMERS_QUERY = """
+query Customers($first: Int!, $after: String, $search: String) {
+  customers(first: $first, after: $after, filter: {search: $search}, sortBy: {field: DATE_JOINED, direction: DESC}) {
+    totalCount pageInfo { hasNextPage endCursor }
+    edges { node { id email firstName lastName dateJoined isActive orders { totalCount } } }
+  }
+}
+"""
+
+_CATEGORIES_QUERY = """
+query Categories($first: Int!, $after: String) {
+  categories(first: $first, after: $after) { totalCount pageInfo { hasNextPage endCursor } edges { node { id name slug level } } }
+}
+"""
+
 _PRODUCTS_QUERY = """
 query Products($first: Int!, $after: String, $search: String, $slugs: [String!]) {
   products(first: $first, after: $after, filter: {search: $search, slugs: $slugs}) {
@@ -331,6 +346,24 @@ class CommerceService:
             )
             for c in data.get("channels", [])
         ]
+
+    async def list_customers(self, *, search: str | None, first: int, after: str | None) -> tuple[list[dict], Page]:
+        data = await self._gql(_CUSTOMERS_QUERY, {"first": first, "after": after, "search": search or None})
+        block = data.get("customers") or {}
+        info = block.get("pageInfo") or {}
+        page = Page(total_count=block.get("totalCount", 0), has_next_page=bool(info.get("hasNextPage")), end_cursor=info.get("endCursor"))
+        items = []
+        for edge in block.get("edges", []):
+            node = edge["node"]
+            items.append({"id": node["id"], "email": node["email"], "first_name": node.get("firstName", ""), "last_name": node.get("lastName", ""), "date_joined": node.get("dateJoined"), "is_active": node.get("isActive", False), "order_count": (node.get("orders") or {}).get("totalCount", 0)})
+        return items, page
+
+    async def list_categories(self, *, first: int, after: str | None) -> tuple[list[dict], Page]:
+        data = await self._gql(_CATEGORIES_QUERY, {"first": first, "after": after})
+        block = data.get("categories") or {}
+        info = block.get("pageInfo") or {}
+        page = Page(total_count=block.get("totalCount", 0), has_next_page=bool(info.get("hasNextPage")), end_cursor=info.get("endCursor"))
+        return [edge["node"] for edge in block.get("edges", [])], Page(total_count=block.get("totalCount", 0), has_next_page=bool(info.get("hasNextPage")), end_cursor=info.get("endCursor"))
 
     async def list_warehouses(self) -> list[dict]:
         data = await self._gql(_WAREHOUSES_QUERY)
