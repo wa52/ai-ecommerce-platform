@@ -8,10 +8,13 @@ import SystemStatusPanel from "@/features/system/SystemStatusPanel";
 import ProductsPage from "@/features/products/ProductsPage";
 import AnalyticsDashboard from "@/features/analytics/AnalyticsDashboard";
 import FinancePage from "@/features/finance/FinancePage";
+import OrdersPage from "@/features/orders/OrdersPage";
+import InventoryPage from "@/features/inventory/InventoryPage";
+import AICenterPage from "@/features/ai-center/AICenterPage";
 
 const { Header, Content, Sider } = Layout;
 
-type ViewKey = "system" | "products" | "analytics" | "finance" | "auth";
+type ViewKey = "system" | "products" | "orders" | "inventory" | "analytics" | "finance" | "ai" | "auth";
 
 export default function AppShell() {
   const [view, setView] = useState<ViewKey>("auth");
@@ -42,8 +45,11 @@ export default function AppShell() {
             items={[
               { key: "system", label: "系统状态" },
               { key: "products", label: "商品 / 订单" },
+              { key: "orders", label: "订单管理" },
+              { key: "inventory", label: "库存管理" },
               { key: "analytics", label: "数据分析" },
               { key: "finance", label: "财务" },
+              { key: "ai", label: "AI Center" },
               { key: "auth", label: session ? "当前用户" : "登录" },
             ]}
           />
@@ -67,6 +73,12 @@ export default function AppShell() {
             ) : (
               <Typography.Paragraph type="warning">请先使用商家账号登录后查看数据分析。</Typography.Paragraph>
             ))}
+          {view === "orders" &&
+            (isAdmin ? <OrdersPage /> : <Typography.Paragraph type="warning">请先使用商家账号登录后管理订单。</Typography.Paragraph>)}
+          {view === "inventory" &&
+            (isAdmin ? <InventoryPage /> : <Typography.Paragraph type="warning">请先使用商家账号登录后管理库存。</Typography.Paragraph>)}
+          {view === "ai" &&
+            (isAdmin ? <AICenterPage /> : <Typography.Paragraph type="warning">请先使用商家账号登录后使用 AI Center。</Typography.Paragraph>)}
           {view === "finance" &&
             (isAdmin ? (
               <FinancePage />

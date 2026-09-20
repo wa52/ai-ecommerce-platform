@@ -46,6 +46,16 @@ export interface OrderPage {
   page: Page;
 }
 
+export interface Stock {
+  variant_id: string;
+  sku: string | null;
+  warehouse_id: string;
+  warehouse_name: string;
+  quantity: number;
+}
+
+export interface StockPage { items: Stock[]; page: Page }
+
 export function fetchProducts(params: { page: number; pageSize: number; search?: string }) {
   const query = new URLSearchParams({ first: String(params.pageSize) });
   if (params.search) query.set("search", params.search);
@@ -63,4 +73,9 @@ export function deleteProduct(id: string) {
 export function fetchOrders(params: { page: number; pageSize: number }) {
   const query = new URLSearchParams({ first: String(params.pageSize) });
   return request<OrderPage>(`/commerce/orders?${query.toString()}`);
+}
+
+export function fetchInventory(params: { page: number; pageSize: number }) {
+  const query = new URLSearchParams({ first: String(params.pageSize) });
+  return request<StockPage>(`/commerce/inventory?${query.toString()}`);
 }

@@ -12,6 +12,7 @@ const CHECKOUT_QTY_KEY = "sf_checkout_qty";
 const CUSTOMER_KEY = "sf_customer_token";
 const CUSTOMER_EMAIL_KEY = "sf_customer_email";
 const LAST_ORDER_KEY = "sf_last_order";
+const FAVORITES_KEY = "sf_favorite_slugs";
 
 export interface Money {
   amount: number;
@@ -64,6 +65,21 @@ export function getBookCoverFallback(slug: string): string {
   return `/book-covers/${match?.[1] ?? "alive.png"}`;
 }
 
+export function getFavoriteSlugs(): string[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(window.localStorage.getItem(FAVORITES_KEY) ?? "[]") as string[]; } catch { return []; }
+}
+
+export function isFavorite(slug: string): boolean { return getFavoriteSlugs().includes(slug); }
+
+export function toggleFavorite(slug: string): boolean {
+  const next = new Set(getFavoriteSlugs());
+  if (next.has(slug)) next.delete(slug); else next.add(slug);
+  window.localStorage.setItem(FAVORITES_KEY, JSON.stringify([...next]));
+  window.dispatchEvent(new Event("sf-favorites-changed"));
+  return next.has(slug);
+}
+
 export interface CheckoutLine {
   id: string;
   quantity: number;
@@ -78,6 +94,8 @@ export interface Checkout {
   lines: CheckoutLine[];
   subtotal: Money | null;
   total: Money | null;
+  discount: Money | null;
+  voucherCode: string | null;
   shippingMethods: { id: string; name: string }[];
   email: string | null;
 }
@@ -177,6 +195,8 @@ function normalizeCheckout(raw: Record<string, unknown>): Checkout {
     lines,
     subtotal: taxedToMoney(raw.subtotal as { gross?: { amount?: number; currency?: string } }),
     total: taxedToMoney(raw.total as { gross?: { amount?: number; currency?: string } }),
+    discount: (raw.discount as Money | null) ?? null,
+    voucherCode: raw.voucherCode ? String(raw.voucherCode) : null,
     shippingMethods: ((raw.shippingMethods as Record<string, unknown>[]) ?? []).map((m) => ({
       id: String(m.id),
       name: String(m.name ?? ""),
@@ -324,6 +344,8 @@ fragment StoreCheckout on Checkout {
   }
   subtotal: subtotalPrice { gross { amount currency } }
   total: totalPrice { gross { amount currency } }
+  discount { amount currency }
+  voucherCode
   shippingMethods { id name }
 }
 `;
@@ -387,8 +409,8 @@ ${CHECKOUT_FRAGMENT}
 `;
 
 const CHECKOUT_SHIPPING_ADDRESS = `
-mutation ShippingAddress($id: ID!, $addr: AddressInput!) {
-  checkoutShippingAddressUpdate(id: $id, shippingAddress: $addr) {
+mutation ShippingAddress($id: ID!, $addr: AddressInput!, $save: Boolean!) {
+  checkoutShippingAddressUpdate(id: $id, shippingAddress: $addr, saveAddress: $save) {
     checkout { ...StoreCheckout }
     errors { field message }
   }
@@ -550,7 +572,7 @@ export async function checkoutShippingAddressUpdate(addr: Record<string, unknown
   if (!id) throw new SaleorError("购物车不存在");
   const data = await saleorFetch<{
     checkoutShippingAddressUpdate: { checkout: Checkout | null; errors: ResError[] | null };
-  }>(CHECKOUT_SHIPPING_ADDRESS, { id, addr });
+  }>(CHECKOUT_SHIPPING_ADDRESS, { id, addr, save: true });
   return unwrap(data.checkoutShippingAddressUpdate);
 }
 
@@ -570,6 +592,26 @@ export async function checkoutDeliveryMethodUpdate(methodId: string): Promise<Ch
     checkoutDeliveryMethodUpdate: { checkout: Checkout | null; errors: ResError[] | null };
   }>(CHECKOUT_DELIVERY_METHOD, { id, methodId });
   return unwrap(data.checkoutDeliveryMethodUpdate);
+}
+
+const CHECKOUT_PROMO_ADD = `
+mutation AddPromo($id: ID!, $promoCode: String!) {
+  checkoutAddPromoCode(id: $id, promoCode: $promoCode) {
+    checkout { ...StoreCheckout }
+    errors { field message }
+  }
+}
+${CHECKOUT_FRAGMENT}
+`;
+
+export async function checkoutAddPromoCode(promoCode: string): Promise<Checkout> {
+  const id = getCheckoutId();
+  if (!id) throw new SaleorError("购物车不存在");
+  const data = await saleorFetch<{ checkoutAddPromoCode: { checkout: Checkout | null; errors: ResError[] | null } }>(
+    CHECKOUT_PROMO_ADD,
+    { id, promoCode }
+  );
+  return unwrap(data.checkoutAddPromoCode);
 }
 
 export async function checkoutPaymentCreate(gateway: string, amount: number): Promise<Checkout> {
@@ -651,7 +693,9 @@ mutation TokenCreate($e: String!, $p: String!) {
 const ME_QUERY = `
 query Me {
   me {
+    id
     email
+    addresses { id firstName lastName companyName streetAddress1 streetAddress2 city cityArea postalCode country { code country } countryArea phone isDefaultShippingAddress isDefaultBillingAddress }
     orders(first: 20) { edges { node { ...StoreOrder } } }
   }
 }
@@ -661,6 +705,102 @@ fragment StoreOrder on Order {
   lines { quantity variantName unitPrice { gross { amount currency } } }
 }
 `;
+
+export interface CustomerAddress {
+  id: string;
+  firstName: string;
+  lastName: string;
+  companyName: string;
+  streetAddress1: string;
+  streetAddress2: string;
+  city: string;
+  cityArea: string;
+  postalCode: string;
+  country: { code: string; country: string };
+  countryArea: string;
+  phone: string;
+  isDefaultShippingAddress: boolean;
+  isDefaultBillingAddress: boolean;
+}
+
+const ADDRESS_FRAGMENT = `
+fragment CustomerAddress on Address {
+  id firstName lastName companyName streetAddress1 streetAddress2 city cityArea postalCode country { code country } countryArea phone isDefaultShippingAddress isDefaultBillingAddress
+}
+`;
+
+const ADDRESS_CREATE = `
+mutation AddressCreate($input: AddressInput!, $type: AddressTypeEnum) {
+  accountAddressCreate(input: $input, type: $type) {
+    address { ...CustomerAddress }
+    errors { field message }
+  }
+}
+${ADDRESS_FRAGMENT}
+`;
+
+const ADDRESS_DELETE = `
+mutation AddressDelete($id: ID!) {
+  accountAddressDelete(id: $id) { errors { field message } }
+}
+`;
+
+const ADDRESS_UPDATE = `
+mutation AddressUpdate($id: ID!, $input: AddressInput!) {
+  accountAddressUpdate(id: $id, input: $input) {
+    address { ...CustomerAddress }
+    errors { field message }
+  }
+}
+${ADDRESS_FRAGMENT}
+`;
+
+const ADDRESS_DEFAULT = `
+mutation AddressDefault($id: ID!, $type: AddressTypeEnum!) {
+  accountSetDefaultAddress(id: $id, type: $type) { errors { field message } }
+}
+`;
+
+export async function fetchCustomerAddresses(): Promise<CustomerAddress[]> {
+  const token = getCustomerToken();
+  if (!token) return [];
+  const data = await saleorFetch<{ me: { addresses: Record<string, unknown>[] } | null }>(ME_QUERY, {}, token);
+  return (data.me?.addresses ?? []).map((address) => address as unknown as CustomerAddress);
+}
+
+export async function createCustomerAddress(input: Record<string, unknown>): Promise<CustomerAddress> {
+  const token = getCustomerToken();
+  if (!token) throw new SaleorError("请先登录");
+  const data = await saleorFetch<{ accountAddressCreate: { address: CustomerAddress | null; errors: ResError[] | null } }>(ADDRESS_CREATE, { input, type: "SHIPPING" }, token);
+  const errors = data.accountAddressCreate.errors;
+  if (errors?.length) throw new SaleorError(errText(errors) ?? "地址保存失败");
+  if (!data.accountAddressCreate.address) throw new SaleorError("地址保存失败");
+  return data.accountAddressCreate.address;
+}
+
+export async function deleteCustomerAddress(id: string): Promise<void> {
+  const token = getCustomerToken();
+  if (!token) throw new SaleorError("请先登录");
+  const data = await saleorFetch<{ accountAddressDelete: { errors: ResError[] | null } }>(ADDRESS_DELETE, { id }, token);
+  if (data.accountAddressDelete.errors?.length) throw new SaleorError(errText(data.accountAddressDelete.errors) ?? "地址删除失败");
+}
+
+export async function updateCustomerAddress(id: string, input: Record<string, unknown>): Promise<CustomerAddress> {
+  const token = getCustomerToken();
+  if (!token) throw new SaleorError("请先登录");
+  const data = await saleorFetch<{ accountAddressUpdate: { address: CustomerAddress | null; errors: ResError[] | null } }>(ADDRESS_UPDATE, { id, input }, token);
+  const errors = data.accountAddressUpdate.errors;
+  if (errors?.length) throw new SaleorError(errText(errors) ?? "地址更新失败");
+  if (!data.accountAddressUpdate.address) throw new SaleorError("地址更新失败");
+  return data.accountAddressUpdate.address;
+}
+
+export async function setDefaultCustomerAddress(id: string): Promise<void> {
+  const token = getCustomerToken();
+  if (!token) throw new SaleorError("请先登录");
+  const data = await saleorFetch<{ accountSetDefaultAddress: { errors: ResError[] | null } }>(ADDRESS_DEFAULT, { id, type: "SHIPPING" }, token);
+  if (data.accountSetDefaultAddress.errors?.length) throw new SaleorError(errText(data.accountSetDefaultAddress.errors) ?? "默认地址设置失败");
+}
 
 export async function customerRegister(email: string, password: string): Promise<void> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";

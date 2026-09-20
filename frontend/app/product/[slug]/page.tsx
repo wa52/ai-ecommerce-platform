@@ -1,10 +1,11 @@
 "use client";
 
 import { Button, Card, Divider, InputNumber, message, Result, Skeleton, Tag, Typography } from "antd";
+import { HeartOutlined, HeartFilled } from "@ant-design/icons";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import StorefrontLayout from "@/components/StorefrontLayout";
-import { checkoutLinesAdd, fetchProductBySlug, getBookCoverFallback, type StorefrontProduct } from "@/services/saleor";
+import { checkoutLinesAdd, fetchProductBySlug, getBookCoverFallback, isFavorite, toggleFavorite, type StorefrontProduct } from "@/services/saleor";
 
 function parseDescriptionText(raw: string | null): string {
   if (!raw) return "";
@@ -26,6 +27,7 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [qty, setQty] = useState(1);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [favorite, setFavorite] = useState(false);
   const [adding, setAdding] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -35,6 +37,7 @@ export default function ProductDetailPage() {
     fetchProductBySlug(slugString)
       .then((p) => {
         setProduct(p);
+        if (p) setFavorite(isFavorite(p.slug));
         setSelectedVariantId(p?.variants.find((v) => (v.quantityAvailable ?? 0) > 0)?.id ?? p?.variants[0]?.id ?? null);
       })
       .catch((e) => messageApi.error(String(e)))
@@ -104,7 +107,7 @@ export default function ProductDetailPage() {
           </div>
           <div style={{ flex: 1, minWidth: 320 }}>
             <Typography.Title level={3} style={{ marginTop: 0 }}>
-              {product.name}
+              {product.name} <Button type="text" icon={favorite ? <HeartFilled style={{ color: "#ff4d4f" }} /> : <HeartOutlined />} onClick={() => setFavorite(toggleFavorite(product.slug))}>{favorite ? "已收藏" : "收藏"}</Button>
             </Typography.Title>
             <Typography.Title level={2} style={{ color: "#111", marginTop: 0 }}>
               {price && typeof price.amount === "number" ? `${price.currency} ${price.amount.toFixed(2)}` : "询价"}

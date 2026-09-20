@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import StorefrontLayout from "@/components/StorefrontLayout";
 import {
   checkoutBillingAddressUpdate,
+  checkoutAddPromoCode,
   checkoutDeliveryMethodUpdate,
   checkoutEmailUpdate,
   checkoutRetrieve,
@@ -36,6 +37,8 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoBusy, setPromoBusy] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
 
   const reload = useCallback(
@@ -108,6 +111,20 @@ export default function CheckoutPage() {
       await reload({ silent: true });
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function applyPromo() {
+    if (!promoCode.trim()) return;
+    setPromoBusy(true);
+    try {
+      await checkoutAddPromoCode(promoCode.trim());
+      messageApi.success("优惠码已应用");
+      await reload({ silent: true });
+    } catch (error) {
+      messageApi.error(String(error));
+    } finally {
+      setPromoBusy(false);
     }
   }
 
@@ -195,6 +212,20 @@ export default function CheckoutPage() {
             <Typography.Text type="secondary">
               收货信息保存后将进入独立支付页，支付完成后才会创建订单。
             </Typography.Text>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <Typography.Text strong>优惠码</Typography.Text>
+            <Input.Search
+              value={promoCode}
+              onChange={(event) => setPromoCode(event.target.value)}
+              onSearch={applyPromo}
+              enterButton="应用"
+              loading={promoBusy}
+              placeholder="如有优惠码请输入"
+              style={{ marginTop: 8 }}
+            />
+            {checkout.voucherCode && <Typography.Text type="success" style={{ display: "block", marginTop: 8 }}>已应用：{checkout.voucherCode}</Typography.Text>}
+            {checkout.discount && checkout.discount.amount > 0 && <Typography.Text type="success" style={{ display: "block", marginTop: 4 }}>优惠：{checkout.discount.currency} {checkout.discount.amount.toFixed(2)}</Typography.Text>}
           </div>
         </Card>
       </div>

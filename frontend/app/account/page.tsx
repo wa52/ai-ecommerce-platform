@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, Empty, Tag, Typography } from "antd";
+import { Button, Card, Empty, Select, Tag, Typography } from "antd";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -15,6 +15,7 @@ export default function AccountPage() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
   const [orders, setOrders] = useState<StorefrontOrder[]>([]);
+  const [status, setStatus] = useState("ALL");
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(
@@ -76,12 +77,17 @@ export default function AccountPage() {
       </div>
       <Typography.Paragraph style={{ marginTop: 8 }}>
         <Tag color="blue">{email}</Tag>
+        <Link href="/account/addresses" style={{ marginLeft: 16 }}>管理收货地址</Link>
+        <Link href="/favorites" style={{ marginLeft: 16 }}>我的收藏</Link>
       </Typography.Paragraph>
-      <Typography.Title level={4}>我的订单</Typography.Title>
-      {orders.length === 0 ? (
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Typography.Title level={4}>我的订单</Typography.Title>
+        <Select value={status} onChange={setStatus} options={[{ value: "ALL", label: "全部状态" }, { value: "UNFULFILLED", label: "待处理" }, { value: "FULFILLED", label: "已完成" }]} />
+      </div>
+      {orders.filter((o) => status === "ALL" || o.status === status).length === 0 ? (
         <Empty description="还没有订单" />
       ) : (
-        orders.map((o) => (
+        orders.filter((o) => status === "ALL" || o.status === status).map((o) => (
           <Card key={o.id} style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
               <div>
